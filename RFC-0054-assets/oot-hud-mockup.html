@@ -341,29 +341,17 @@ td.jobCell { text-align: center; padding: 0px 1px; }
 .crcr-group-header .jobHeaderNameBold { color: #0288d1; }
 
 /* ═══════════════════════════════════════════════════════════════════════
-   Monster Failures — pixel-art sprites via CSS box-shadow
+   Monster Failures — inline SVG pixel-art sprites
    ═══════════════════════════════════════════════════════════════════════ */
 .failure-monster {
   display: none;
-  width: 1px; height: 1px;
-  margin: 1px auto 0;
+  width: 14px; height: 15px;
+  margin: 0 auto;
   image-rendering: pixelated;
-  overflow: visible;
-  transform: scale(1.6);
-  transform-origin: top left;
-  position: relative;
-  left: -2px; top: 1px;
 }
-.monsterized .c-failure { display: none; }
-.monsterized .failure-monster { display: block; }
-.monster-with-count { display: none; position: relative; }
-.monsterized .monster-with-count { display: inline-flex; align-items: flex-end; }
-.monster-count {
-  font-size: 7px; font-weight: bold; color: #fff;
-  background: #d32f2f; border-radius: 50%;
-  width: 10px; height: 10px; line-height: 10px;
-  text-align: center; position: absolute; right: -4px; bottom: -2px;
-}
+.failure-monster svg { display: block; }
+.monsterized .c-failure { display: none !important; }
+.monsterized .failure-monster { display: block !important; }
 
 /* ═══════════════════════════════════════════════════════════════════════ */
 .view { display: none; }
@@ -946,10 +934,9 @@ function toggleMonsterize(cb) {
   document.querySelector('.hudTable').classList.toggle('monsterized', cb.checked);
 }
 
-/* ── Pixel-art monster generation ──
-   Each 7×8 monster is a box-shadow sprite built from a seeded hash.
-   Same error string → same monster (deterministic). */
-var MONSTER_PALETTES = [
+/* ── SVG pixel-art monster generation ──
+   7×8 grid scaled to 14×16px. Same error → same monster (deterministic). */
+var PALETTES = [
   ['#e53935','#ef5350','#ffcdd2'],
   ['#d81b60','#f06292','#f8bbd0'],
   ['#8e24aa','#ba68c8','#e1bee7'],
@@ -959,74 +946,70 @@ var MONSTER_PALETTES = [
   ['#00897b','#4db6ac','#b2dfdb'],
   ['#e65100','#ff9800','#ffe0b2'],
   ['#4e342e','#8d6e63','#d7ccc8'],
-  ['#37474f','#78909c','#cfd8dc'],
+  ['#c62828','#ff5252','#ff8a80'],
 ];
 
 function hashStr(s) {
   var h = 0;
   for (var i = 0; i < s.length; i++) {
     var c = s.charCodeAt(i);
-    if (c === 32 || c === 10 || (c >= 48 && c <= 57)) continue;
-    h = ((h << 5) - h + c) | 0;
+    if (c===32||c===10||(c>=48&&c<=57)) continue;
+    h = ((h<<5)-h+c)|0;
   }
   return Math.abs(h);
 }
 
 function seededRand(seed) {
   var s = seed;
-  return function() { s = (s * 16807 + 0) % 2147483647; return s / 2147483647; };
+  return function(){ s=(s*16807)%2147483647; return s/2147483647; };
 }
 
-function makeMonster(errorStr) {
+function makeMonsterSVG(errorStr) {
   var h = hashStr(errorStr || 'unknown');
-  var pal = MONSTER_PALETTES[h % MONSTER_PALETTES.length];
+  var pal = PALETTES[h % PALETTES.length];
   var rng = seededRand(h);
-  var W = 7, H = 8, px = 1;
-  var shadows = [];
-  // body: symmetric left half mirrored to right, rows 0-5
-  for (var y = 0; y < H - 2; y++) {
-    for (var x = 0; x < Math.ceil(W / 2); x++) {
-      if (rng() > 0.35) {
-        var c = pal[rng() < 0.5 ? 0 : 1];
-        shadows.push((x * px) + 'px ' + (y * px) + 'px 0 ' + c);
-        var mx = W - 1 - x;
-        if (mx !== x) shadows.push((mx * px) + 'px ' + (y * px) + 'px 0 ' + c);
+  var W=7, H=8;
+  var rects = '';
+  function r(x,y,c){ rects += '<rect x="'+x+'" y="'+y+'" width="1" height="1" fill="'+c+'"/>'; }
+
+  // body (symmetric): rows 0-5
+  for (var y=0; y<6; y++) {
+    for (var x=0; x<4; x++) {
+      if (rng() > 0.3) {
+        var c = pal[rng()<0.5 ? 0 : 1];
+        r(x, y, c);
+        if (W-1-x !== x) r(W-1-x, y, c);
       }
     }
   }
-  // eyes: row 2-3, columns 1-2 and 4-5
-  var eyeColor = '#fff';
-  [[1,2],[2,2],[4,2],[5,2],[1,3],[2,3],[4,3],[5,3]].forEach(function(p) {
-    shadows.push((p[0]*px) + 'px ' + (p[1]*px) + 'px 0 ' + eyeColor);
-  });
+  // eyes: white 2x2 blocks at (1,2) and (4,2)
+  [[1,2],[2,2],[1,3],[2,3],[4,2],[5,2],[4,3],[5,3]].forEach(function(p){ r(p[0],p[1],'#fff'); });
   // pupils
-  var pupilOff = rng() < 0.5 ? 0 : 1;
-  [[1+pupilOff,3],[4+pupilOff,3]].forEach(function(p) {
-    shadows.push((p[0]*px) + 'px ' + (p[1]*px) + 'px 0 #222');
-  });
-  // feet: row 6-7
-  for (var y2 = H - 2; y2 < H; y2++) {
-    for (var x2 = 0; x2 < W; x2++) {
-      if ((x2 + y2) % 2 === 0 || x2 === 0 || x2 === W - 1) {
-        shadows.push((x2*px) + 'px ' + (y2*px) + 'px 0 ' + pal[0]);
-      }
+  var po = rng()<0.5 ? 0 : 1;
+  r(1+po, 3, '#111'); r(4+po, 3, '#111');
+  // feet: rows 6-7
+  for (var y2=6; y2<8; y2++) {
+    for (var x2=0; x2<W; x2++) {
+      if ((x2+y2)%2===0 || x2===0 || x2===W-1) r(x2, y2, pal[0]);
     }
   }
-  var el = document.createElement('div');
-  el.className = 'failure-monster';
-  el.style.boxShadow = shadows.join(',');
-  return el;
+
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="16" viewBox="0 0 7 8" shape-rendering="crispEdges">' + rects + '</svg>';
+  var div = document.createElement('div');
+  div.className = 'failure-monster';
+  div.innerHTML = svg;
+  return div;
 }
 
-/* On load: inject monster sprites into every failure cell */
+/* On load: inject monster SVGs into every failure cell */
 document.addEventListener('DOMContentLoaded', function() {
   document.querySelectorAll('.jobCell').forEach(function(cell) {
     var failSpan = cell.querySelector('.c-failure');
     if (!failSpan) return;
-    var tooltip = cell.querySelector('.tt');
-    var errorStr = tooltip ? tooltip.textContent : 'error-' + Math.random();
-    var monster = makeMonster(errorStr);
-    cell.insertBefore(monster, failSpan.nextSibling);
+    var tt = cell.querySelector('.tt');
+    var errStr = tt ? tt.textContent : ('err' + cell.cellIndex);
+    var m = makeMonsterSVG(errStr);
+    failSpan.parentNode.insertBefore(m, failSpan.nextSibling);
   });
 });
 </script>
