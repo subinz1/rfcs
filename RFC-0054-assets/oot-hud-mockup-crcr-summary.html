@@ -282,7 +282,8 @@ td.jobCell { text-align: center; padding: 2px; }
 .mono { font-family: "SF Mono", "Fira Code", Consolas, monospace; font-size: 0.8125rem; }
 
 /* Stat cards */
-.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+.stat-grid-wide { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
 .stat-card {
   background: var(--dropdown-bg); border: 1px solid var(--border-color);
   border-radius: 6px; padding: 16px 20px;
@@ -355,6 +356,7 @@ td.jobCell { text-align: center; padding: 2px; }
 
 @media (max-width: 900px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-grid-wide { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
 </head>
@@ -423,28 +425,45 @@ td.jobCell { text-align: center; padding: 2px; }
     </div>
     <p class="subtitle">Cross-repo CI health overview. Repos sorted by pass rate (worst first). Click a row to see the per-backend dashboard.</p>
 
-    <!-- Stat cards -->
+    <!-- Stat cards — Row 1: Health overview -->
     <div class="stat-grid">
       <a href="oot-hud-mockup-crcr-backend.html" class="relay-health-card">
-        <span class="stat-label">CRCR Relay Health</span>
-        <span class="stat-value good">87.1%</span>
-        <span class="stat-sub">11145/13501 jobs &middot; 2h ago</span>
-        <div class="relay-repo">pytorch/crcr-test</div>
+        <span class="stat-label">Overall Pass Rate</span>
+        <span class="stat-value good">92.4%</span>
+        <span class="stat-sub">277 / 300 jobs passed &middot; last 7 days</span>
       </a>
-      <div class="stat-card">
-        <span class="stat-label">Registered Repos</span>
-        <span class="stat-value">6</span>
-        <span class="stat-sub">across 3 levels (L4/L3/L2) + 3 L1</span>
-      </div>
       <div class="stat-card">
         <span class="stat-label">Total CI Runs</span>
         <span class="stat-value">300</span>
-        <span class="stat-sub">last 7 days</span>
+        <span class="stat-sub">last 7 days &middot; avg 43/day</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Avg Duration</span>
-        <span class="stat-value">31s</span>
-        <span class="stat-sub">median: 32s</span>
+        <span class="stat-label">Active Failures</span>
+        <span class="stat-value bad">23</span>
+        <span class="stat-sub">across 4 repos in last 24h</span>
+      </div>
+    </div>
+    <!-- Stat cards — Row 2: Infrastructure metrics -->
+    <div class="stat-grid-wide">
+      <div class="stat-card">
+        <span class="stat-label">Registered Backends</span>
+        <span class="stat-value">6</span>
+        <span class="stat-sub">1 L4 &middot; 2 L3 &middot; 3 L2 &middot; 3 L1</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Median Queue Time</span>
+        <span class="stat-value good">4.2s</span>
+        <span class="stat-sub">dispatch &rarr; in_progress</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Callback Success Rate</span>
+        <span class="stat-value good">99.7%</span>
+        <span class="stat-sub">2 rejected / 598 total callbacks</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Stale Runs</span>
+        <span class="stat-value warn">3</span>
+        <span class="stat-sub">in_progress &gt; 2h without completion</span>
       </div>
     </div>
 
