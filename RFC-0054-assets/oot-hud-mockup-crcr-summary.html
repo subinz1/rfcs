@@ -426,12 +426,7 @@ td.jobCell { text-align: center; padding: 2px; }
     <p class="subtitle">Cross-repo CI health overview. Repos sorted by pass rate (worst first). Click a row to see the per-backend dashboard.</p>
 
     <!-- Stat cards — Row 1: Health overview -->
-    <div class="stat-grid">
-      <a href="oot-hud-mockup-crcr-backend.html" class="relay-health-card">
-        <span class="stat-label">Overall Pass Rate</span>
-        <span class="stat-value good">92.4%</span>
-        <span class="stat-sub">277 / 300 jobs passed &middot; last 7 days</span>
-      </a>
+    <div class="stat-grid" style="grid-template-columns: repeat(2, 1fr);">
       <div class="stat-card">
         <span class="stat-label">Total CI Runs</span>
         <span class="stat-value">300</span>
@@ -444,7 +439,7 @@ td.jobCell { text-align: center; padding: 2px; }
       </div>
     </div>
     <!-- Stat cards — Row 2: Infrastructure metrics -->
-    <div class="stat-grid-wide">
+    <div class="stat-grid">
       <div class="stat-card">
         <span class="stat-label">Registered Backends</span>
         <span class="stat-value">6</span>
@@ -459,11 +454,6 @@ td.jobCell { text-align: center; padding: 2px; }
         <span class="stat-label">Callback Success Rate</span>
         <span class="stat-value good">99.7%</span>
         <span class="stat-sub">2 rejected / 598 total callbacks</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Stale Runs</span>
-        <span class="stat-value warn">3</span>
-        <span class="stat-sub">in_progress &gt; 2h without completion</span>
       </div>
     </div>
 
