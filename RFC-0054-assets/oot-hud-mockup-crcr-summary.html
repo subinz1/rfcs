@@ -444,7 +444,7 @@ td.jobCell { text-align: center; padding: 2px; }
       </div>
     </div>
     <!-- Stat cards — Row 2: Infrastructure metrics -->
-    <div class="stat-grid">
+    <div class="stat-grid-wide">
       <div class="stat-card">
         <span class="stat-label">Registered Backends</span>
         <span class="stat-value">6</span>
@@ -459,6 +459,11 @@ td.jobCell { text-align: center; padding: 2px; }
         <span class="stat-label">Callback Success Rate</span>
         <span class="stat-value good">99.7%</span>
         <span class="stat-sub">2 rejected / 598 total callbacks</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Timed Out</span>
+        <span class="stat-value warn">5</span>
+        <span class="stat-sub">jobs that failed to report completion</span>
       </div>
     </div>
 
