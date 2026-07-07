@@ -425,7 +425,7 @@ td.jobCell { text-align: center; padding: 2px; }
     </div>
     <p class="subtitle">Cross-repo CI health overview. Repos sorted by pass rate (worst first). Click a row to see the per-backend dashboard.</p>
 
-    <!-- Stat cards — Row 1: Health overview -->
+    <!-- Stat cards — Row 1: CRCR relay health (all from pytorch/crcr-test) -->
     <div class="stat-grid">
       <a href="oot-hud-mockup-crcr-backend.html" class="relay-health-card">
         <span class="stat-label">CRCR-test Pass Rate</span>
@@ -433,37 +433,32 @@ td.jobCell { text-align: center; padding: 2px; }
         <span class="stat-sub">51 / 53 jobs passed &middot; pytorch/crcr-test</span>
       </a>
       <div class="stat-card">
-        <span class="stat-label">Total CI Runs</span>
-        <span class="stat-value">300</span>
-        <span class="stat-sub">last 7 days &middot; avg 43/day</span>
+        <span class="stat-label">Total Probe Runs</span>
+        <span class="stat-value">53</span>
+        <span class="stat-sub">last 7 days &middot; pytorch/crcr-test</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Active Failures</span>
-        <span class="stat-value bad">23</span>
-        <span class="stat-sub">across 4 repos in last 24h</span>
+        <span class="stat-label">Probe Failures</span>
+        <span class="stat-value bad">2</span>
+        <span class="stat-sub">pytorch/crcr-test failures</span>
       </div>
     </div>
     <!-- Stat cards — Row 2: Infrastructure metrics -->
-    <div class="stat-grid-wide">
+    <div class="stat-grid">
       <div class="stat-card">
         <span class="stat-label">Registered Backends</span>
         <span class="stat-value">6</span>
         <span class="stat-sub">1 L4 &middot; 2 L3 &middot; 3 L2 &middot; 3 L1</span>
       </div>
       <div class="stat-card">
-        <span class="stat-label">Median Queue Time</span>
-        <span class="stat-value good">4.2s</span>
-        <span class="stat-sub">dispatch &rarr; in_progress</span>
-      </div>
-      <div class="stat-card">
         <span class="stat-label">Callback Success Rate</span>
         <span class="stat-value good">99.7%</span>
-        <span class="stat-sub">2 rejected / 598 total callbacks</span>
+        <span class="stat-sub">from crcr-test probe results</span>
       </div>
       <div class="stat-card">
         <span class="stat-label">Timed Out</span>
-        <span class="stat-value warn">5</span>
-        <span class="stat-sub">jobs that failed to report completion</span>
+        <span class="stat-value warn">0</span>
+        <span class="stat-sub">probes that failed to report completion</span>
       </div>
     </div>
 
