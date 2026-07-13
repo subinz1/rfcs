@@ -213,7 +213,8 @@ Webhook Lambda (new handler path: event.source == "crcr.scheduler")
 1. Fetch pytorch/pytorch main HEAD SHA via GitHub API
 2. Build synthetic client_payload:
    - event_type: "nightly" (or "periodic")
-   - delivery_id: "nightly-{date}-{uuid}"
+   - delivery_id: "<SHA>" (the main HEAD commit SHA — meaningful, correlatable,
+     and lets HUD map runs directly to github.com/pytorch/pytorch/commit/<sha>)
    - payload: {repository: {full_name: "pytorch/pytorch"}, head_sha: "..."}
 3. Call _dispatch_to_allowlist() — reuses existing dispatch logic:
    - For each allowlisted repo: repository_dispatch + DISPATCHED in Redis
