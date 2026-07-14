@@ -137,6 +137,16 @@ Upsert record keyed by (repo, SHA) → HUD
 | Downstream workflow (per repo) | New `schedule: cron` workflow that fetches `pytorch/pytorch` HEAD SHA, runs CI, and calls the callback with `event_type: nightly` and `dispatch_id: <SHA>` |
 | HUD (`torchci/`) | Filter/view for `event_type != pull_request` on `/crcr/nightly` or dedicated nightly page |
 
+## Previously Considered Options
+
+Two alternative approaches were evaluated before arriving at the authenticated self-report design:
+
+**Option A: EventBridge Cron → Webhook Lambda.** An AWS EventBridge rule on a cron schedule invokes the webhook Lambda directly. The Lambda fetches `pytorch/pytorch` main HEAD SHA, builds a synthetic `client_payload`, and dispatches to downstream repos via the existing `_dispatch_to_allowlist()` path. This preserves the full state machine and guarantees SHA alignment across all backends. However, it introduces new AWS infrastructure (EventBridge rule, Terraform config, CloudWatch alarms) and centralizes schedule control — downstream repos cannot customize their own cron timing without additional EventBridge rules.
+
+**Option B: Upstream Cron Workflow in pytorch/pytorch → Webhook Lambda.** A `schedule: cron` workflow in `pytorch/pytorch` constructs a synthetic payload and POSTs it to the webhook Lambda endpoint with OIDC authentication. This gives upstream visibility (schedule appears in the Actions tab) and built-in manual re-trigger via `workflow_dispatch`. However, it requires adding a second authentication path (OIDC or shared secret) to the webhook Lambda, changes to `pytorch/pytorch` requiring maintainer approval, and depends on GitHub cron reliability.
+
+Both options were set aside in favor of the self-report model because they require either new AWS infrastructure or upstream repo changes, while the proposed design keeps all changes within the callback Lambda and downstream repos.
+
 ## Prior Art
 
 - **GitHub Actions scheduled workflows**: Widely used for nightly builds across the PyTorch ecosystem (e.g., `pytorch/pytorch` nightly builds, `pytorch/vision` nightly tests).
