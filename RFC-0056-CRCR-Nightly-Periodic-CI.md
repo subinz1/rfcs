@@ -263,26 +263,90 @@ Callback Lambda → HUD → DynamoDB → ClickHouse
 | Testing | End-to-end test with `TorchedHat/pytorch-redhat-ci` | ~0.5 day |
 | **Total** | | **~4 days** |
 
+### Option 3: Authenticated Self-Report (Option C)
+
+*Proposed by @atalman in [PR #98 comment](https://github.com/pytorch/rfcs/pull/98#issuecomment-4962790260).*
+
+Instead of a central scheduler dispatching *to* downstream repos, each downstream repo drives its own schedule and reports results back. The relay stops being a trigger and becomes a **validating ingest endpoint**. The `DISPATCHED → IN_PROGRESS → COMPLETED` state machine precondition is dropped and replaced with authorization + SHA-validity at callback time.
+
+```
+Downstream repo's own cron schedule
+    ↓
+Fetches pytorch/pytorch HEAD SHA (or nightly/viable-strict ref)
+    ↓
+Runs CI against that SHA
+    ↓
+Calls back to the relay with:
+    - OIDC token (proves repo identity)
+    - dispatch_id = pytorch/pytorch commit SHA
+    - event_type = "nightly" or "periodic"
+    ↓
+Relay validates:
+    1. OIDC token → repo is on allowlist
+    2. GET /repos/pytorch/pytorch/commits/{sha} → SHA is real
+    ↓
+Upsert record keyed by (repo, SHA) → HUD
+```
+
+#### Option 3 — Pros
+
+| # | Advantage | Detail |
+|---|-----------|--------|
+| 1 | No trigger from pytorch/pytorch | Nothing in upstream emits an event. No new workflows, branches, or tags. |
+| 2 | No new AWS infrastructure | No EventBridge, no Terraform. |
+| 3 | Self-service schedule | Each downstream repo owns its cron. Changes are PRs to the downstream repo. |
+| 4 | Manual re-trigger | `workflow_dispatch` on the downstream cron workflow re-runs the nightly. |
+| 5 | Coordination-free correlation | dispatch_id is the SHA, derivable by any actor independently. |
+
+#### Option 3 — Cons
+
+| # | Disadvantage | Detail |
+|---|-------------|--------|
+| 1 | State machine bypass | Drops the `DISPATCHED` precondition. "Upsert" is a fundamentally different model from the existing state machine. Requires a new callback Lambda code path. |
+| 2 | Trust model weakening | The relay can verify the SHA is real, but not that CI actually ran against it. A downstream could self-report results for a SHA it never tested. |
+| 3 | No SHA alignment | Each downstream independently fetches HEAD. If `main` advances between repos' crons, they test different commits. Cross-backend comparison on HUD is fragmented. |
+| 4 | Missing-run detection is silent | No `DISPATCHED` record means no zombie sweeper coverage. If a downstream's cron silently breaks, nobody on the relay side knows. |
+| 5 | SHA overwrite on re-runs | Upsert keyed by `(repo, SHA)` overwrites previous results. No audit trail of multiple runs against the same SHA. |
+| 6 | No timing metrics | Without `dispatched_at`, queue time metrics are lost. |
+| 7 | SHA validation adds dependency | `GET /repos/pytorch/pytorch/commits/{sha}` requires GitHub API availability and rate limits. Caching specifics are undefined. |
+| 8 | Callback payload contract undefined | Current callbacks carry `delivery_id`, PR metadata. A nightly self-report has different fields. The new payload schema is not specified. |
+| 9 | Significant Lambda changes | New callback Lambda code path (~200 LOC), SHA validation + caching, upsert logic. The complexity shifts from AWS resources to Lambda code. |
+
+#### Option 3 — Implementation Effort
+
+| Component | Work | Effort |
+|-----------|------|--------|
+| Callback Lambda upsert path | New code path: skip state machine, validate OIDC + SHA, upsert | ~2 days |
+| SHA validation + caching | GitHub API integration + cache layer | ~1 day |
+| Downstream cron workflow | New workflow in each downstream: fetch SHA, run CI, call callback | ~1 day per repo |
+| HUD view | Filter/view for non-PR results grouped by SHA | ~1 day |
+| Testing | End-to-end test with TorchedHat/pytorch-redhat-ci | ~1 day |
+| **Total** | | **~5-6 days** |
+
+---
+
 ## Side-by-Side Comparison
 
-| Criteria | Option 2: EventBridge → Lambda | Option 1: pytorch/pytorch Cron → Lambda |
-|----------|-------------------------------|----------------------------------------|
-| New AWS infrastructure | Yes (EventBridge rule) | No |
-| Changes to pytorch/pytorch | No | Yes (new workflow file) |
-| Webhook Lambda changes | New handler path (~150 LOC) | New auth path + event parser (~250 LOC) |
-| Callback Lambda changes | None | None |
-| Auth changes | None (internal invoke) | Significant (OIDC or shared secret) |
-| Downstream repo changes | Add `nightly` to dispatch types | Add `nightly` to dispatch types |
-| State machine integrity | Full | Full (with new auth path) |
-| Timing metrics | Full | Full |
-| Central schedule control | Yes (Terraform) | No (workflow in upstream repo) |
-| Manual re-trigger | Lambda console/CLI | Built-in (`workflow_dispatch`) |
-| Schedule reliability | High (EventBridge 99.99% SLA) | Medium (GitHub cron best-effort) |
-| Per-repo schedule flexibility | Low (single cron) | Medium (multiple workflows) |
-| Operational visibility | CloudWatch logs/metrics | GitHub Actions run history |
-| Org approval needed | No (test-infra only) | Yes (pytorch/pytorch PR) |
-| Security surface change | None | New auth path in webhook Lambda |
-| **Implementation effort** | **~4 days** | **~5.5-9.5 days** |
+| Criteria | Option 2: EventBridge → Lambda | Option 1: pytorch/pytorch Cron → Lambda | Option 3: Authenticated Self-Report |
+|----------|-------------------------------|----------------------------------------|--------------------------------------|
+| New AWS infrastructure | Yes (EventBridge rule) | No | No |
+| Changes to pytorch/pytorch | No | Yes (new workflow file) | No |
+| Webhook Lambda changes | New handler path (~150 LOC) | New auth path + event parser (~250 LOC) | None |
+| Callback Lambda changes | None | None | ~200 LOC (upsert + SHA validation) |
+| Auth changes | None (internal invoke) | Significant (OIDC or shared secret) | Modified (OIDC as sole trust anchor) |
+| State machine | Preserved | Preserved (with new auth path) | Bypassed (upsert replaces state machine) |
+| Downstream repo changes | Add `nightly` to dispatch types | Add `nightly` to dispatch types | New cron workflow + callback |
+| SHA alignment across backends | Guaranteed (single dispatch) | Guaranteed (single dispatch) | Not guaranteed |
+| Missing-run detection | Zombie sweeper works | Zombie sweeper works | Not supported |
+| Timing metrics | Full | Full | Partial (no dispatched_at) |
+| Trust model | Relay-controlled dispatch | Relay-controlled dispatch | Self-reported (SHA verified, execution not verified) |
+| Central schedule control | Yes (Terraform) | No (workflow in upstream repo) | No (each downstream independently) |
+| Manual re-trigger | Lambda console/CLI | Built-in (`workflow_dispatch`) | Downstream `workflow_dispatch` |
+| Schedule reliability | High (EventBridge 99.99% SLA) | Medium (GitHub cron best-effort) | Medium (GitHub cron per downstream) |
+| Operational visibility | CloudWatch logs/metrics | GitHub Actions run history | Downstream repo Actions tab |
+| Org approval needed | No (test-infra only) | Yes (pytorch/pytorch PR) | No |
+| Security surface change | None | New auth path in webhook Lambda | New callback Lambda entry point |
+| **Implementation effort** | **~4 days** | **~5.5-9.5 days** | **~5-6 days** |
 
 ## Metrics
 
@@ -317,11 +381,13 @@ Callback Lambda → HUD → DynamoDB → ClickHouse
 
 **Option 2 is lower effort and lower risk.** Auth is the key differentiator — Option 2 requires zero auth changes (EventBridge invokes the Lambda directly as an internal AWS call, inherently trusted), while Option 1 requires adding a second authentication mechanism to the webhook Lambda. Option 2 follows the exact same EventBridge → Lambda pattern already used for zombie cleanup. Everything stays in `pytorch/test-infra` with no cross-repo coordination.
 
+**Option 3 gives downstream repos full autonomy but trades state machine guarantees.** By shifting the trigger to downstream crons and validating via OIDC + SHA at callback time, it avoids touching upstream infra entirely. However, this is a fundamentally different trust model — the relay trusts that downstream repos actually ran CI against the claimed SHA, but has no dispatch record to verify this. Missing-run detection, SHA alignment across backends, and queue-time metrics are all sacrificed. The Lambda changes are non-trivial (new upsert path, SHA validation, caching), and the callback payload contract needs careful design to avoid breaking the existing state machine path.
+
 ## Unresolved Questions
 
 ### For WG Discussion
 
-1. **Which option does the WG prefer?** Option 2 (lower effort, central control, no auth changes) or Option 1 (upstream visibility, self-service triggers, more flexible)?
+1. **Which option does the WG prefer?** Option 2 (lower effort, central control, no auth changes), Option 1 (upstream visibility, self-service triggers, more flexible), or Option 3 (downstream autonomy, no upstream changes, but weaker guarantees)?
 
 2. **Schedule ownership:** Central cron (EventBridge or upstream workflow) or per-repo opt-in schedules?
 
@@ -335,7 +401,19 @@ Callback Lambda → HUD → DynamoDB → ClickHouse
 
 7. **Periodic vs. nightly:** Do we need both `nightly` and `periodic` event types from day one, or start with `nightly` only and add `periodic` later?
 
-### Shared Considerations (Both Options)
+### Option 3-specific Questions
+
+8. **State machine divergence:** Is the WG comfortable maintaining two distinct callback models — state machine (`DISPATCHED → IN_PROGRESS → COMPLETED`) for PR/push and upsert for nightly/periodic — in the same Lambda?
+
+9. **Trust model:** Without a `DISPATCHED` record, how do we verify that a downstream repo actually ran CI against the SHA it claims? Is OIDC + SHA-existence sufficient, or do we need execution attestation?
+
+10. **SHA alignment:** If downstream repos fetch `main` HEAD independently, they will test different SHAs when `main` advances between crons. Is fragmented cross-backend comparison on HUD acceptable?
+
+11. **Missing-run detection:** Without `DISPATCHED` records, the zombie sweeper cannot detect silent cron failures in downstream repos. What replaces this? Should we add a "last seen" heartbeat per repo?
+
+12. **SHA overwrite on re-runs:** Upsert keyed by `(repo, SHA)` silently overwrites previous results. Should we maintain an audit trail of multiple runs against the same SHA?
+
+### Shared Considerations (All Options)
 
 **HUD Changes.** The HUD currently groups results by `pr_number`. For nightly runs there is no PR. Use `pr_number = 0` as a sentinel for non-PR runs. The `event_type` field already flows through the pipeline — it just needs to carry `nightly` or `periodic` instead of `pull_request`. Add a filter/view on `hud.pytorch.org/crcr` for non-PR results, or a dedicated `/crcr/nightly` page.
 
