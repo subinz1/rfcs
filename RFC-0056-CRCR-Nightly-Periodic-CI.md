@@ -79,7 +79,17 @@ The `client_payload` always contains `event_type`, `delivery_id`, and the upstre
 
 *Proposed by @atalman in [PR #98 comment](https://github.com/pytorch/rfcs/pull/98#issuecomment-4962790260).*
 
-Instead of a central scheduler dispatching *to* downstream repos, each downstream repo drives its own schedule and reports results back. The relay becomes a **validating ingest endpoint** for nightly/periodic events. The `DISPATCHED → IN_PROGRESS → COMPLETED` state machine precondition is dropped for these event types and replaced with authorization + SHA-validity at callback time.
+Instead of a central scheduler dispatching *to* downstream repos, each downstream repo drives its own schedule and reports results back. The relay becomes a **validating ingest endpoint** for nightly/periodic events. The full state machine is replaced with a **single-callback model**:
+
+| | PR / push (existing) | Nightly / periodic (new) |
+|---|---|---|
+| **Trigger** | Upstream webhook → relay dispatches to downstream | Downstream cron (self-triggered) |
+| **State machine** | `DISPATCHED → IN_PROGRESS → COMPLETED` (two callbacks, Redis state tracking) | No state machine — single callback with final result |
+| **Callbacks** | Two: `in_progress` then `completed` | One: `completed` only |
+| **Redis** | Required (state tracking + zombie sweeper) | Not used |
+| **Validation** | GitHub webhook signature (`X-Hub-Signature-256`) | OIDC token + SHA existence |
+
+This significantly simplifies the relay path for nightly/periodic: no Redis writes, no state transitions, no zombie sweeper coverage. The downstream workflow runs to completion and reports the final result in a single callback.
 
 ### SHA Sources
 
@@ -97,19 +107,23 @@ Fetch top-of-tree SHA:
     - Nightly:  git ls-remote pytorch/pytorch refs/heads/nightly
     - Periodic: git ls-remote pytorch/pytorch refs/heads/main
     ↓
-Runs CI against that SHA
+Runs CI against that SHA (build, test, etc.)
     ↓
-Calls back to the relay with:
+Single callback to the relay (no in_progress step):
     - OIDC token (proves repo identity)
     - dispatch_id = the commit SHA (idempotent, correlatable,
       maps directly to github.com/pytorch/pytorch/commit/<sha>)
     - event_type = "nightly" or "periodic"
+    - status = "completed"
+    - conclusion = "success" | "failure" | "timed_out"
     ↓
 Relay validates:
-    1. OIDC token → repo is on allowlist
-    2. GET /repos/pytorch/pytorch/commits/{sha} → SHA is real
+    1. OIDC token → repo is on allowlist with nightly enabled
+    2. GET /repos/pytorch/pytorch/commits/{sha} → SHA exists
     ↓
-Upsert record keyed by (repo, SHA) → HUD
+Direct upsert to DynamoDB (no Redis, no state machine)
+    ↓
+DynamoDB → ClickHouse replicator → HUD
 ```
 
 ### Example: Downstream Nightly Workflow
@@ -140,7 +154,10 @@ jobs:
           # Clone pytorch at the nightly SHA, build, run tests
           ...
 
+      # Single callback — no in_progress step needed for nightly.
+      # Reports the final result directly to the relay.
       - name: Report results to CRCR
+        if: always()
         uses: ./.github/actions/cross-repo-ci-relay
         with:
           dispatch_id: ${{ steps.sha.outputs.sha }}
@@ -181,7 +198,7 @@ jobs:
 
 | File | Change |
 |------|--------|
-| `callback/lambda_function.py` | New code path: detect `event_type ∈ {nightly, periodic}`, skip state machine, validate OIDC + SHA, upsert record to DynamoDB |
+| `callback/lambda_function.py` | New code path: detect `event_type ∈ {nightly, periodic}`, skip state machine entirely (no Redis), validate OIDC + SHA, single upsert to DynamoDB |
 | `callback/sha_validator.py` | New module: `GET /repos/pytorch/pytorch/commits/{sha}` with TTL cache to avoid repeated GitHub API calls |
 | `allowlist.yml` | Add `nightly: true/false` per-repo flag to control which repos can self-report nightly results |
 | Downstream workflow (per repo) | New `schedule: cron` workflow: fetch top-of-tree SHA from `nightly` branch (or `main` for periodic), run CI, call callback with `event_type: nightly` and `dispatch_id: <SHA>` |
