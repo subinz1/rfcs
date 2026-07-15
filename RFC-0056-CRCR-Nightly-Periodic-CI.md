@@ -79,18 +79,30 @@ The `client_payload` always contains `event_type`, `delivery_id`, and the upstre
 
 *Proposed by @atalman in [PR #98 comment](https://github.com/pytorch/rfcs/pull/98#issuecomment-4962790260).*
 
-Instead of a central scheduler dispatching *to* downstream repos, each downstream repo drives its own schedule and reports results back. The relay stops being a trigger and becomes a **validating ingest endpoint**. The `DISPATCHED → IN_PROGRESS → COMPLETED` state machine precondition is dropped for nightly/periodic events and replaced with authorization + SHA-validity at callback time.
+Instead of a central scheduler dispatching *to* downstream repos, each downstream repo drives its own schedule and reports results back. The relay becomes a **validating ingest endpoint** for nightly/periodic events. The `DISPATCHED → IN_PROGRESS → COMPLETED` state machine precondition is dropped for these event types and replaced with authorization + SHA-validity at callback time.
+
+### SHA Sources
+
+| Event type | Branch | SHA source | Rationale |
+|------------|--------|------------|-----------|
+| `nightly` | [`pytorch/pytorch/tree/nightly`](https://github.com/pytorch/pytorch/tree/nightly) | Top-of-tree commit on the `nightly` branch | The `nightly` branch is updated daily by [`trigger_nightly_core.yml`](https://github.com/pytorch/test-infra/blob/main/.github/workflows/trigger_nightly_core.yml). It represents the latest nightly-validated state of PyTorch. |
+| `periodic` | `main` or `viable/strict` | Top-of-tree commit on the target branch | Periodic tests run against the latest `main` HEAD or the latest viable/strict commit. |
+
+### Flow
 
 ```
-Downstream repo's own cron schedule
+Downstream repo's cron schedule (e.g., daily 02:00 UTC)
     ↓
-Fetches pytorch/pytorch HEAD SHA (or nightly/viable-strict ref)
+Fetch top-of-tree SHA:
+    - Nightly:  git ls-remote pytorch/pytorch refs/heads/nightly
+    - Periodic: git ls-remote pytorch/pytorch refs/heads/main
     ↓
 Runs CI against that SHA
     ↓
 Calls back to the relay with:
     - OIDC token (proves repo identity)
-    - dispatch_id = pytorch/pytorch commit SHA
+    - dispatch_id = the commit SHA (idempotent, correlatable,
+      maps directly to github.com/pytorch/pytorch/commit/<sha>)
     - event_type = "nightly" or "periodic"
     ↓
 Relay validates:
@@ -98,6 +110,43 @@ Relay validates:
     2. GET /repos/pytorch/pytorch/commits/{sha} → SHA is real
     ↓
 Upsert record keyed by (repo, SHA) → HUD
+```
+
+### Example: Downstream Nightly Workflow
+
+```yaml
+# downstream-repo/.github/workflows/crcr-nightly.yml
+name: CRCR Nightly CI
+on:
+  schedule:
+    - cron: '0 2 * * *'  # daily at 02:00 UTC
+  workflow_dispatch: {}   # manual re-trigger
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Get nightly branch HEAD SHA
+        id: sha
+        run: |
+          SHA=$(git ls-remote https://github.com/pytorch/pytorch refs/heads/nightly | cut -f1)
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "Testing against nightly SHA: $SHA"
+
+      - name: Build and test against nightly
+        run: |
+          # Clone pytorch at the nightly SHA, build, run tests
+          ...
+
+      - name: Report results to CRCR
+        uses: ./.github/actions/cross-repo-ci-relay
+        with:
+          dispatch_id: ${{ steps.sha.outputs.sha }}
+          event_type: nightly
+          status: completed
+          conclusion: ${{ job.status }}
 ```
 
 ### Advantages
@@ -108,7 +157,8 @@ Upsert record keyed by (repo, SHA) → HUD
 | 2 | No new AWS infrastructure | No EventBridge, no Terraform. |
 | 3 | Self-service schedule | Each downstream repo owns its cron. Changes are PRs to the downstream repo. |
 | 4 | Manual re-trigger | `workflow_dispatch` on the downstream cron workflow re-runs the nightly. |
-| 5 | Coordination-free correlation | `dispatch_id` is the SHA, derivable by any actor independently. |
+| 5 | Coordination-free correlation | `dispatch_id` is the nightly branch HEAD SHA — meaningful, idempotent, and lets HUD map runs directly to `github.com/pytorch/pytorch/commit/<sha>`. |
+| 6 | Leverages existing nightly branch | The `nightly` branch already exists and is updated daily by `trigger_nightly_core.yml`. No new infrastructure needed to determine the SHA. |
 
 ### Implementation Effort
 
@@ -134,7 +184,7 @@ Upsert record keyed by (repo, SHA) → HUD
 | `callback/lambda_function.py` | New code path: detect `event_type ∈ {nightly, periodic}`, skip state machine, validate OIDC + SHA, upsert record to DynamoDB |
 | `callback/sha_validator.py` | New module: `GET /repos/pytorch/pytorch/commits/{sha}` with TTL cache to avoid repeated GitHub API calls |
 | `allowlist.yml` | Add `nightly: true/false` per-repo flag to control which repos can self-report nightly results |
-| Downstream workflow (per repo) | New `schedule: cron` workflow that fetches `pytorch/pytorch` HEAD SHA, runs CI, and calls the callback with `event_type: nightly` and `dispatch_id: <SHA>` |
+| Downstream workflow (per repo) | New `schedule: cron` workflow: fetch top-of-tree SHA from `nightly` branch (or `main` for periodic), run CI, call callback with `event_type: nightly` and `dispatch_id: <SHA>` |
 | HUD (`torchci/`) | Filter/view for `event_type != pull_request` on `/crcr/nightly` or dedicated nightly page |
 
 ## Previously Considered Options
