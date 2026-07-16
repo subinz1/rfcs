@@ -354,6 +354,7 @@ td.jobCell { text-align: center; padding: 2px; }
       <li><a href="#">TorchAudio</a></li>
       <li><a href="#">Helion</a></li>
       <li><a href="oot-hud-mockup-crcr-summary.html">CRCR</a></li>
+      <li><a href="#">CRCR Metrics</a></li>
     </ul>
   </div>
   <div class="nav-right">
@@ -399,33 +400,62 @@ td.jobCell { text-align: center; padding: 2px; }
 <div id="view-crcr-backend" >
   <div class="oot-page">
 
-    <!-- Header: breadcrumb + repo name + GitHub link + time range -->
+    <!-- Header: breadcrumb + repo name + GitHub link + controls -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
       <div>
-        <a href="#" onclick="window.location.href='oot-hud-mockup-crcr-summary.html'; return false;" style="font-size: 0.8125rem; color: #888;">&larr; CRCR Summary</a>
         <h2 style="font-size: 2rem; font-weight: 400; margin: 2px 0 6px;">intel/intel-extension-for-pytorch</h2>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <a href="#" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border: 1px solid var(--border-color); border-radius: 4px; font-size: 0.8125rem; color: var(--link-color);">
-            <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor"><path d="M3.75 2h3.5a.75.75 0 010 1.5h-3.5a.25.25 0 00-.25.25v8.5c0 .138.112.25.25.25h8.5a.25.25 0 00.25-.25v-3.5a.75.75 0 011.5 0v3.5A1.75 1.75 0 0112.25 14h-8.5A1.75 1.75 0 012 12.25v-8.5C2 2.784 2.784 2 3.75 2zm6.854-.146a.5.5 0 01.146.354v3a.5.5 0 01-1 0V3.207L6.354 6.604a.5.5 0 01-.708-.708L9.043 2.5H7.042a.5.5 0 010-1h3a.499.499 0 01.562.354z"/></svg>
-            View on GitHub
-          </a>
-          <span class="chip chip-outlined level-l2" style="font-size: 0.75rem;">L2</span>
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <a href="oot-hud-mockup-crcr-summary.html" style="font-size: 0.8125rem; color: var(--link-color);">&larr; Back to CRCR Summary</a>
+          <a href="#" style="font-size: 0.8125rem; color: var(--link-color);">GitHub ↗</a>
         </div>
       </div>
-      <div class="mui-select-wrapper">
-        <label>Time Range</label>
-        <select><option value="1">Last 24h</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option></select>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8125rem; cursor: pointer;">
+          <input type="checkbox" id="monsterToggle" onchange="toggleMonsters()"> Monsterize failures
+        </label>
+        <div class="mui-select-wrapper">
+          <label>Time Range</label>
+          <select><option value="1">Last 24h</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option></select>
+        </div>
       </div>
     </div>
 
-    <!-- Stat pills row -->
-    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px;">
-      <div class="stat-pill"><span class="stat-pill-label">Pass Rate</span><span class="stat-pill-value good">91.7%</span></div>
-      <div class="stat-pill"><span class="stat-pill-label">Jobs Passed</span><span class="stat-pill-value">44 / 48</span></div>
-      <div class="stat-pill"><span class="stat-pill-label">Avg Queue</span><span class="stat-pill-value">11.6s</span></div>
-      <div class="stat-pill"><span class="stat-pill-label">Avg Execution</span><span class="stat-pill-value">8m 22s</span></div>
-      <div class="stat-pill"><span class="stat-pill-label">Total PRs</span><span class="stat-pill-value">23</span></div>
-      <div class="stat-pill"><span class="stat-pill-label">Flaky Jobs</span><span class="stat-pill-value warn">1</span></div>
+    <!-- Summary Stat Cards — 2 rows of 3 -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+      <div class="stat-card" style="border-top: 3px solid #2e7d32;">
+        <div class="stat-label">Pass Rate</div>
+        <div class="stat-value good">91.7%</div>
+        <div class="stat-sub">44/48 jobs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total PRs</div>
+        <div class="stat-value">23</div>
+        <div class="stat-sub">unique PRs tested</div>
+      </div>
+      <div class="stat-card" style="border-top: 3px solid #d32f2f;">
+        <div class="stat-label">Failures</div>
+        <div class="stat-value bad">4</div>
+        <div class="stat-sub">+ 0 timed out</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Queue Time</div>
+        <div class="stat-value">11.6s</div>
+        <div class="stat-sub">dispatch to start</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Avg Execution Time</div>
+        <div class="stat-value">8m 22s</div>
+        <div class="stat-sub">start to completion</div>
+      </div>
+      <div class="stat-card" style="border-top: 3px solid #ed6c02;">
+        <div class="stat-label">Flaky Jobs</div>
+        <div class="stat-value warn">1</div>
+        <div class="stat-sub">same job: pass + fail across attempts</div>
+      </div>
+    </div>
+
+    <div style="font-size: 0.8125rem; color: #888; margin-bottom: 12px;">
+      Rows = PyTorch PRs (50 per page), columns = downstream CI jobs. Click a chip to open the workflow run.
     </div>
 
     <div style="overflow-x: auto;">
@@ -895,12 +925,32 @@ Queue: 10.1s</div></td>
         </tbody>
       </table>
     </div>
-    <div style="margin-top: 12px; font-size: 0.8em; color: #888;"><em>This page automatically updates.</em></div>
+    <!-- Pagination -->
+    <div style="margin-top: 12px; font-size: 0.85rem;">
+      Page 1: <span style="color: #888;">Prev</span> | <a href="#">Next</a>
+    </div>
   </div>
 </div>
 
 <script>
 function toggleTheme() { document.body.classList.toggle("dark-mode"); }
+
+function toggleMonsters() {
+  const checked = document.getElementById('monsterToggle').checked;
+  document.querySelectorAll('.c-failure').forEach(el => {
+    if (checked) {
+      // Replace X with a pixel-art monster placeholder
+      const hash = Math.abs(el.closest('tr')?.rowIndex * 7 + el.closest('td')?.cellIndex * 13 || 0) % 278;
+      const x = (hash % 10) * 15.26;
+      const y = Math.floor(hash / 10) * (640 / 28 / 1.5);
+      el.innerHTML = '<span style="display:inline-block;width:14px;height:15px;background:url(/failures_spritesheet.png) no-repeat;background-size:152px 426px;background-position:-' + x.toFixed(1) + 'px -' + y.toFixed(1) + 'px;image-rendering:pixelated;vertical-align:middle;"></span>';
+      el.dataset.original = 'X';
+    } else if (el.dataset.original) {
+      el.textContent = el.dataset.original;
+      delete el.dataset.original;
+    }
+  });
+}
 </script>
 
 </body>
