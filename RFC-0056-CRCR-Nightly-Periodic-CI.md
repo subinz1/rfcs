@@ -194,6 +194,18 @@ jobs:
 - **HUD coverage**: Number of downstream backends with nightly results visible on `hud.pytorch.org/crcr`.
 - **Time-to-detection**: How quickly a nightly regression in a downstream backend is surfaced on HUD.
 
+## Replay & Recovery
+
+Nightly/periodic pipelines are **idempotent by design**: the `delivery_id` is the upstream commit SHA, and the callback upserts into DynamoDB, so re-running the same workflow for the same SHA is safe and produces no duplicates.
+
+**Manual replay procedure** (Option 1 — adopted for initial launch):
+
+1. Navigate to the downstream repo's Actions tab (e.g., `TorchedHat/pytorch-redhat-ci` → Actions → "CRCR Nightly").
+2. Click "Run workflow" (`workflow_dispatch` trigger is already enabled).
+3. The workflow fetches the current `nightly` branch HEAD SHA, runs CI, and reports results via the callback action — identical to a cron-triggered run.
+
+No centralized replay endpoint is needed at this stage. Automated missed-nightly detection (self-healing re-triggers) may be considered in a future iteration based on WG feedback.
+
 ### File Changes
 
 | File | Change |
