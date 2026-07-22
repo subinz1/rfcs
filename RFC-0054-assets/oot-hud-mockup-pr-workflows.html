@@ -176,7 +176,7 @@ input, select { background-color: var(--dropdown-bg); color: var(--text-color); 
       </li>
       <li class="dropdown-trigger">
         <span>Metrics &#9662;</span>
-        <div class="dropdown-menu"><a href="#">Metrics</a><a href="#">Flambeau</a><a href="#">vLLM CI metrics</a><a href="#">Autorevert Metrics</a><a href="#">Claude Billing</a></div>
+        <div class="dropdown-menu"><a href="#">Metrics</a><a href="#">Flambeau</a><a href="#">vLLM CI metrics</a><a href="#">Autorevert Metrics</a><a href="#">Claude Billing</a><a href="#">CRCR Metrics</a></div>
       </li>
       <li class="dropdown-trigger">
         <span>Dev Infra &#9662;</span>
@@ -537,107 +537,75 @@ Last error: Cuda failure 700 'an illegal memory access was encountered'</div>
       <div class="crcr-section-header">
         <h2>Cross-Repo CI Backends</h2>
         <span class="crcr-tag">CRCR</span>
-        <span style="font-size: 0.85rem; color: #888;">(2 backends dispatched)</span>
+        <span style="font-size: 0.85rem; color: #888;">(3 backends dispatched &mdash; L3/L4 only)</span>
       </div>
 
       <div class="crcr-backends-grid">
 
         <!-- ─── CRCR Backend 1: TorchedHat/pytorch-redhat-ci ─── -->
-        <div class="workflowBoxFail">
-          <div class="wf-header">
-            <div class="wf-header-left">
-              <h2><a href="oot-hud-mockup-crcr-backend.html" style="color: inherit;">TorchedHat/pytorch-redhat-ci</a> <span class="crcr-level-badge">L2</span></h2>
-              <div class="job-status-label">Job Status</div>
-            </div>
-            <div class="wf-header-right">
-              <div><select><option>Select Workflow ID</option><option>35291800012 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — results from downstream backend" style="cursor: help; color: #888;">&#9432;</span></div>
-            </div>
-          </div>
-
-          <div class="job-line"><span class="conclusion c-failure">X</span> <a href="#">ec06-always-on-failure</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-failure">X</span> <a href="#">multi05-cancel-rerun</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">size04-oversized-payload</a></div>
-          <div class="job-sub">Running <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">state05-stale-in-progress</a></div>
-          <div class="job-sub">Running <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-warning">T</span> <a href="#">payload05-timed-out</a></div>
-          <div class="job-sub">timed_out <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-cancelled">C</span> <a href="#">payload04-cancelled</a></div>
-          <div class="job-sub">cancelled · 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">sec17-unicode-fields</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a> <a class="mini-btn" href="#">Artifacts</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">sec15-large-payload</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">sec12-sql-injection</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">sec10-xss-fields</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a> <a class="mini-btn" href="#">Artifacts</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">tr03-results-on-in-progress</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">tr02-computed-total</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">tr01-full-test-results</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">ec05-multi-job-b</a></div>
-          <div class="job-sub">Duration: 6.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">ec00-multi-job-a</a></div>
-          <div class="job-sub">Duration: 4.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">ec03-empty-test-results</a></div>
-          <div class="job-sub">Duration: 1.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">dynamo06-merge-semantics</a></div>
-          <div class="job-sub">Duration: 9.0s <a class="mini-btn" href="#">Run</a> <a class="mini-btn" href="#">Artifacts</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
-          <div class="job-sub">Duration: 6.0s <a class="mini-btn" href="#">Run</a> <a class="mini-btn" href="#">Artifacts</a></div>
-        </div>
-
-        <!-- ─── CRCR Backend 2: pytorch/crcr-test ─── -->
         <div class="workflowBoxSuccess">
           <div class="wf-header">
             <div class="wf-header-left">
-              <h2><a href="#" style="color: inherit;">pytorch/crcr-test</a> <span class="crcr-level-badge">L2</span></h2>
+              <h2><a href="oot-hud-mockup-crcr-backend.html" style="color: inherit;">TorchedHat/pytorch-redhat-ci</a> <span class="crcr-level-badge" style="background: #ed6c02;">L3</span></h2>
               <div class="job-status-label">Job Status</div>
             </div>
             <div class="wf-header-right">
-              <div><select><option>Select Workflow ID</option><option>35291810045 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — relay health test backend" style="cursor: help; color: #888;">&#9432;</span></div>
+              <div><select><option>Select Workflow ID</option><option>35291800012 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — RHEL 9.6 CI" style="cursor: help; color: #888;">&#9432;</span></div>
             </div>
           </div>
 
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">relay-health-check</a></div>
-          <div class="job-sub">Duration: 3.0s <a class="mini-btn" href="#">Run</a></div>
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">build</a></div>
+          <div class="job-sub">Duration: 32m 14s <a class="mini-btn" href="#">Run</a></div>
 
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">callback-roundtrip</a></div>
-          <div class="job-sub">Duration: 2.0s <a class="mini-btn" href="#">Run</a></div>
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">cpu-tests</a></div>
+          <div class="job-sub">Duration: 1h 42m <a class="mini-btn" href="#">Run</a></div>
 
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">dispatch-latency</a></div>
-          <div class="job-sub">Duration: 4.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">hud-ingestion-verify</a></div>
-          <div class="job-sub">Duration: 5.0s <a class="mini-btn" href="#">Run</a></div>
-
-          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">state-machine-transitions</a></div>
-          <div class="job-sub">Duration: 3.0s <a class="mini-btn" href="#">Run</a></div>
+          <div class="job-line"><span class="conclusion c-failure">X</span> <a href="#">inductor-tests</a></div>
+          <div class="job-sub">Duration: 58m 22s <a class="mini-btn" href="#">Run</a></div>
 
           <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
-          <div class="job-sub">Duration: 2.0s <a class="mini-btn" href="#">Run</a> <a class="mini-btn" href="#">Artifacts</a></div>
+          <div class="job-sub">Duration: 3.0s <a class="mini-btn" href="#">Run</a></div>
+        </div>
+
+        <!-- ─── CRCR Backend 2: intel/intel-extension-for-pytorch ─── -->
+        <div class="workflowBoxSuccess">
+          <div class="wf-header">
+            <div class="wf-header-left">
+              <h2><a href="#" style="color: inherit;">intel/intel-extension-for-pytorch</a> <span class="crcr-level-badge" style="background: #ed6c02;">L3</span></h2>
+              <div class="job-status-label">Job Status</div>
+            </div>
+            <div class="wf-header-right">
+              <div><select><option>Select Workflow ID</option><option>35291810045 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — Intel XPU CI" style="cursor: help; color: #888;">&#9432;</span></div>
+            </div>
+          </div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">build</a></div>
+          <div class="job-sub">Duration: 18m 44s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">test-xpu-ops</a></div>
+          <div class="job-sub">Duration: 27m 31s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
+          <div class="job-sub">Duration: 2.0s <a class="mini-btn" href="#">Run</a></div>
+        </div>
+
+        <!-- ─── CRCR Backend 3: pytorch-labs/cambricon-pytorch ─── -->
+        <div class="workflowBoxSuccess">
+          <div class="wf-header">
+            <div class="wf-header-left">
+              <h2><a href="#" style="color: inherit;">pytorch-labs/cambricon-pytorch</a> <span class="crcr-level-badge" style="background: #7b1fa2;">L4</span></h2>
+              <div class="job-status-label">Job Status</div>
+            </div>
+            <div class="wf-header-right">
+              <div><select><option>Select Workflow ID</option><option>35291820067 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — Cambricon MLU CI" style="cursor: help; color: #888;">&#9432;</span></div>
+            </div>
+          </div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">build-and-test</a></div>
+          <div class="job-sub">Duration: 32m 05s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
+          <div class="job-sub">Duration: 2.0s <a class="mini-btn" href="#">Run</a></div>
         </div>
 
       </div><!-- end crcr-backends-grid -->
@@ -645,6 +613,18 @@ Last error: Cuda failure 700 'an illegal memory access was encountered'</div>
 
   </div><!-- end workflowContainer -->
 
+</div>
+
+<!-- Mockup cross-links footer -->
+<div style="text-align: center; padding: 20px 0 10px; font-size: 12px; color: var(--text-color); opacity: 0.7; border-top: 1px solid var(--border-color); margin-top: 20px;">
+  Mockup Pages:
+  <a href="oot-hud-mockup.html">Main HUD</a> &middot;
+  <a href="oot-hud-mockup-crcr-summary.html">CRCR Summary</a> &middot;
+  <a href="oot-hud-mockup-crcr-backend.html">Per-Repo (PR)</a> &middot;
+  <a href="oot-hud-mockup-crcr-nightly.html">Nightly</a> &middot;
+  <a href="oot-hud-mockup-crcr-periodic.html">Periodic</a> &middot;
+  <strong>PR Workflows</strong> &middot;
+  <a href="oot-hud-mockup-pr.html">PR View (Legacy)</a>
 </div>
 
 </body>
