@@ -337,6 +337,24 @@ td.jobCell { text-align: center; padding: 2px; }
   padding: 4px 10px; cursor: pointer; color: var(--text-color); font-size: 14px;
 }
 
+/* Event type tab switcher */
+.event-type-tabs {
+  display: inline-flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;
+  vertical-align: middle;
+}
+.event-type-tab {
+  display: inline-block; padding: 4px 14px; font-size: 0.8125rem; font-weight: 500;
+  text-decoration: none; color: #888; border-right: 1px solid var(--border-color);
+  transition: background 0.15s, color 0.15s;
+}
+.event-type-tab:last-child { border-right: none; }
+.event-type-tab:hover { background: rgba(0,0,0,0.04); color: var(--text-color); }
+.dark-mode .event-type-tab:hover { background: rgba(255,255,255,0.04); }
+.event-type-tab.active {
+  background: var(--link-color); color: #fff; font-weight: 600;
+}
+.event-type-tab.disabled { opacity: 0.4; pointer-events: none; }
+
 @media (max-width: 900px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
 }
@@ -408,10 +426,10 @@ td.jobCell { text-align: center; padding: 2px; }
           <a href="oot-hud-mockup-crcr-summary.html" style="font-size: 0.8125rem; color: var(--link-color);">&larr; Back to CRCR Summary</a>
           <a href="#" style="font-size: 0.8125rem; color: var(--link-color);">GitHub ↗</a>
           <span style="color: #555; font-size: 0.8125rem;">|</span>
-          <span style="display: inline-flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; vertical-align: middle;">
-            <span style="display: inline-block; padding: 4px 14px; font-size: 0.8125rem; font-weight: 600; background: var(--link-color); color: #fff;">PR</span>
-            <a href="oot-hud-mockup-crcr-nightly.html" style="display: inline-block; padding: 4px 14px; font-size: 0.8125rem; font-weight: 500; color: #888; border-left: 1px solid var(--border-color);">Nightly</a>
-            <span style="display: inline-block; padding: 4px 14px; font-size: 0.8125rem; font-weight: 500; color: #888; opacity: 0.4; border-left: 1px solid var(--border-color);">Periodic</span>
+          <span class="event-type-tabs">
+            <span class="event-type-tab active">PR</span>
+            <a href="oot-hud-mockup-crcr-nightly.html" class="event-type-tab">Nightly</a>
+            <span class="event-type-tab disabled">Periodic</span>
           </span>
         </div>
       </div>
