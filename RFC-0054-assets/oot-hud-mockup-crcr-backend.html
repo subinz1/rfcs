@@ -434,9 +434,6 @@ td.jobCell { text-align: center; padding: 2px; }
         </div>
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
-        <label style="display: flex; align-items: center; gap: 4px; font-size: 0.8125rem; cursor: pointer;">
-          <input type="checkbox" id="monsterToggle" onchange="toggleMonsters()"> Monsterize failures
-        </label>
         <div class="mui-select-wrapper">
           <label>Time Range</label>
           <select><option value="1">Last 24h</option><option value="7" selected>Last 7 days</option><option value="30">Last 30 days</option></select>
@@ -971,22 +968,7 @@ Queue: 10.1s</div></td>
 <script>
 function toggleTheme() { document.body.classList.toggle("dark-mode"); }
 
-function toggleMonsters() {
-  const checked = document.getElementById('monsterToggle').checked;
-  document.querySelectorAll('.c-failure').forEach(el => {
-    if (checked) {
-      // Replace X with a pixel-art monster placeholder
-      const hash = Math.abs(el.closest('tr')?.rowIndex * 7 + el.closest('td')?.cellIndex * 13 || 0) % 278;
-      const x = (hash % 10) * 15.26;
-      const y = Math.floor(hash / 10) * (640 / 28 / 1.5);
-      el.innerHTML = '<span style="display:inline-block;width:14px;height:15px;background:url(/failures_spritesheet.png) no-repeat;background-size:152px 426px;background-position:-' + x.toFixed(1) + 'px -' + y.toFixed(1) + 'px;image-rendering:pixelated;vertical-align:middle;"></span>';
-      el.dataset.original = 'X';
-    } else if (el.dataset.original) {
-      el.textContent = el.dataset.original;
-      delete el.dataset.original;
-    }
-  });
-}
+
 </script>
 
 </body>
