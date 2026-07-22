@@ -411,6 +411,7 @@ td.jobCell { text-align: center; padding: 2px; }
           <a href="#">vLLM CI metrics</a>
           <a href="#">Autorevert Metrics</a>
           <a href="#">Claude Billing</a>
+          <a href="#">CRCR Metrics</a>
         </div>
       </li>
       <li class="dropdown-trigger">
@@ -546,6 +547,20 @@ td.jobCell { text-align: center; padding: 2px; }
             <td class="r">46</td><td class="r" style="color: #c62828; font-weight: 500;">5</td><td class="r">51</td>
             <td class="r">36s</td><td class="r" style="color: #888;">38m ago</td>
           </tr>
+          <tr style="cursor:pointer;" onclick="window.location.href='oot-hud-mockup-crcr-backend.html'">
+            <td class="c"><span class="status-dot active" title="Active"></span></td>
+            <td>
+              <a href="oot-hud-mockup-crcr-backend.html">TorchedHat/pytorch-redhat-ci</a>
+              <span class="event-tabs">
+                <a href="oot-hud-mockup-crcr-nightly.html" class="event-tab event-tab-nightly" title="View nightly CI results">nightly</a>
+                <a href="oot-hud-mockup-crcr-periodic.html" class="event-tab event-tab-periodic" title="View periodic CI results">periodic</a>
+              </span>
+            </td>
+            <td class="c"><span class="chip chip-outlined level-l3">L3</span></td>
+            <td class="r"><span class="chip chip-success">78.6%</span></td>
+            <td class="r">11</td><td class="r" style="color: #c62828; font-weight: 500;">3</td><td class="r">14</td>
+            <td class="r">2h 48m</td><td class="r" style="color: #888;">1d ago</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -577,20 +592,6 @@ td.jobCell { text-align: center; padding: 2px; }
             <td class="r"><span class="chip chip-success">98.3%</span></td>
             <td class="r">174</td><td class="r" style="color: #c62828; font-weight: 500;">3</td><td class="r">177</td>
             <td class="r">31.8m</td><td class="r" style="color: #888;">4d ago</td>
-          </tr>
-          <tr style="cursor:pointer;" onclick="window.location.href='oot-hud-mockup-crcr-backend.html'">
-            <td class="c"><span class="status-dot stale" title="No recent PR runs"></span></td>
-            <td>
-              <a href="oot-hud-mockup-crcr-backend.html">TorchedHat/pytorch-redhat-ci</a>
-              <span class="event-tabs">
-                <a href="oot-hud-mockup-crcr-nightly.html" class="event-tab event-tab-nightly" title="View nightly CI results">nightly</a>
-                <a href="oot-hud-mockup-crcr-periodic.html" class="event-tab event-tab-periodic" title="View periodic CI results">periodic</a>
-              </span>
-            </td>
-            <td class="c"><span class="chip chip-outlined level-l2">L2</span></td>
-            <td class="r">&mdash;</td>
-            <td class="r">&mdash;</td><td class="r">&mdash;</td><td class="r">&mdash;</td>
-            <td class="r">&mdash;</td><td class="r" style="color: #888;">&mdash;</td>
           </tr>
           <tr style="cursor:pointer;" onclick="window.location.href='oot-hud-mockup-crcr-backend.html'">
             <td class="c"><span class="status-dot stale" title="No recent PR runs"></span></td>
