@@ -181,6 +181,8 @@ td.jobCell { text-align: center; padding: 2px; }
   background: #7b1fa2; color: #fff; font-weight: 600;
 }
 .dark-mode .event-type-tab.active { background: #9c27b0; color: #fff; }
+.event-type-tab.active-pr { background: var(--link-color); color: #fff; font-weight: 600; }
+.event-type-tab.disabled { opacity: 0.4; pointer-events: none; }
 
 .theme-picker {
   background: none; border: 1px solid var(--border-color); border-radius: 4px;
@@ -268,7 +270,7 @@ td.jobCell { text-align: center; padding: 2px; }
         <span class="event-type-tabs">
           <a href="oot-hud-mockup-crcr-backend.html" class="event-type-tab">PR</a>
           <a href="oot-hud-mockup-crcr-nightly.html" class="event-type-tab active">Nightly</a>
-          <a href="#" class="event-type-tab" style="opacity: 0.4; pointer-events: none;">Periodic</a>
+          <span class="event-type-tab disabled">Periodic</span>
         </span>
       </div>
     </div>
