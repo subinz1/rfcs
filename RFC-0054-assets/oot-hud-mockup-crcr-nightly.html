@@ -307,23 +307,21 @@ td.jobCell { text-align: center; padding: 2px; }
   </div>
 
   <div style="font-size: 0.8125rem; color: #888; margin-bottom: 12px;">
-    Rows = nightly CI runs (one per day), columns = test stages. Each run builds PyTorch from the <code style="padding: 1px 4px; border-radius: 3px;">nightly</code> branch HEAD SHA.
+    Rows = nightly CI runs (one per day), columns = test stages. SHA = pytorch/pytorch <code style="padding: 1px 4px; border-radius: 3px;">main</code> commit that the nightly was built from.
   </div>
 
   <!-- HUD-style grid -->
   <div style="overflow-x: auto;">
     <table class="hudTable">
       <colgroup>
-        <col style="width: 10ch;">
-        <col style="width: 9ch;">
-        <col style="width: 9ch;">
+        <col style="width: 14ch;">
+        <col style="width: 8ch;">
         <col class="colJob"><col class="colJob"><col class="colJob"><col class="colJob"><col class="colJob">
       </colgroup>
       <thead>
         <tr>
-          <th class="regularHeader">Date</th>
-          <th class="regularHeader">Nightly SHA</th>
-          <th class="regularHeader">Source SHA</th>
+          <th class="regularHeader">Time</th>
+          <th class="regularHeader">SHA</th>
           <th class="jobHeader"><div class="jobHeaderName">build</div></th>
           <th class="jobHeader"><div class="jobHeaderName">cpu-tests</div></th>
           <th class="jobHeader"><div class="jobHeaderName">inductor-tests</div></th>
@@ -333,8 +331,7 @@ td.jobCell { text-align: center; padding: 2px; }
       </thead>
       <tbody>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 22</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">f3a2b1c</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 22, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">9e8d7c6</a></td>
           <td class="jobCell has-tooltip"><span class="conclusion c-success">O</span><div class="tt">build — success
 Duration: 31m 14s</div></td>
@@ -350,8 +347,7 @@ Skipped: cpu-tests failed</div></td>
 Skipped: cpu-tests failed</div></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 21</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">a1b2c3d</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 21, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">7f6e5d4</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell has-tooltip"><span class="conclusion c-failure">X</span><div class="tt">cpu-tests — failure
@@ -363,8 +359,7 @@ FAIL: test_overrides</div></td>
           <td class="jobCell"><span class="conclusion c-skipped">S</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 20</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">e4f5a6b</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 20, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">3c2b1a0</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -373,8 +368,7 @@ FAIL: test_overrides</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 19</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">c7d8e9f</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 19, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">1a0b9c8</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -383,8 +377,7 @@ FAIL: test_overrides</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 18</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">b6c7d8e</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 18, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">5d4c3b2</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -396,8 +389,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-skipped">S</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 17</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">d3e4f5a</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 17, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">8e7d6c5</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -406,8 +398,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 16</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">f0a1b2c</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 16, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">2a1b0c9</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -416,8 +407,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 15</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">a9b0c1d</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 15, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">6f5e4d3</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -426,8 +416,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 14</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">e2f3a4b</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 14, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">4c3b2a1</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -436,8 +425,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 13</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">c5d6e7f</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 13, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">0a9b8c7</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -446,8 +434,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 12</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">a8b9c0d</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 12, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">7d6e5f4</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -456,8 +443,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 11</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">f1a2b3c</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 11, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">3e2d1c0</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -466,8 +452,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 10</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">d4e5f6a</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 10, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">9b8a7c6</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
@@ -476,8 +461,7 @@ FAIL: test_torchinductor</div></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
         </tr>
         <tr>
-          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 9</td>
-          <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">b7c8d9e</a></td>
+          <td class="regularCell" style="white-space: nowrap; font-size: 0.8rem; color: #888;">Jul 09, 04:00</td>
           <td class="regularCell" style="font-family: monospace; font-size: 0.75rem;"><a href="#">5f4e3d2</a></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
           <td class="jobCell"><span class="conclusion c-success">O</span></td>
