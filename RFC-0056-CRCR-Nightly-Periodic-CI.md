@@ -206,6 +206,76 @@ Nightly/periodic pipelines are **idempotent by design**: the `delivery_id` is th
 
 No centralized replay endpoint is needed at this stage. Automated missed-nightly detection (self-healing re-triggers) may be considered in a future iteration based on WG feedback.
 
+## Multi-CI Provider Authentication
+
+The self-report model currently relies on GitHub Actions OIDC tokens for caller identity. To support downstream backends that run CI on other platforms (e.g., Buildkite, GitLab CI), the relay's `jwt_helper` needs to become multi-issuer.
+
+### Problem
+
+`jwt_helper.verify_oidc_token()` is hardcoded to validate tokens from a single issuer (`https://token.actions.githubusercontent.com`). Backends running on Buildkite (e.g., vLLM at `vllm-project/vllm`) cannot authenticate to the callback Lambda because their OIDC tokens come from a different issuer (`https://agent.buildkite.com`).
+
+### Design: Issuer-Based Dispatch
+
+Add a registry of trusted issuers, each with its own JWKS endpoint and claim-extraction logic. The `verify_oidc_token` function becomes:
+
+1. Strip `Bearer ` prefix (existing)
+2. Decode the JWT header **unverified** to read the `iss` claim
+3. Look up the issuer in the registry → reject unknown issuers with 401
+4. Fetch the signing key from the issuer-specific JWKS endpoint
+5. Verify the signature, audience (`pytorch-cross-repo-ci-relay`), and issuer
+6. Extract `verified_repo` using the issuer-specific claim mapper
+
+```python
+_ISSUERS = {
+    "https://token.actions.githubusercontent.com": {
+        "jwks": "https://token.actions.githubusercontent.com/.well-known/jwks",
+        "repo_claim": lambda claims: claims["repository"],
+    },
+    "https://agent.buildkite.com": {
+        "jwks": "https://agent.buildkite.com/.well-known/jwks",
+        "repo_claim": lambda claims: _buildkite_to_repo(
+            claims["organization_slug"], claims["pipeline_slug"]
+        ),
+    },
+}
+```
+
+### Buildkite Identity Mapping
+
+Buildkite OIDC tokens have no `repository` claim. They provide `organization_slug` and `pipeline_slug`. A static mapping resolves these to a GitHub `owner/repo`:
+
+```python
+_BUILDKITE_REPO_MAP = {
+    ("vllm", "vllm-ci"): "vllm-project/vllm",
+    # Add more as backends onboard
+}
+```
+
+The mapping is maintained in `jwt_helper.py` so that identity resolution is complete before the callback handler runs. Everything downstream of `verified_repo` (callback handler, allowlist, Redis, HUD) is unchanged.
+
+### CI Provider Reference
+
+| CI Engine | Issuer (`iss`) | JWKS Endpoint | Repo Claim |
+|-----------|---------------|---------------|------------|
+| GitHub Actions | `https://token.actions.githubusercontent.com` | `.../.well-known/jwks` | `claims["repository"]` |
+| Buildkite | `https://agent.buildkite.com` | `.../.well-known/jwks` | `(organization_slug, pipeline_slug)` → static map |
+| GitLab CI | `https://gitlab.com` | `.../-/oauth/discovery/keys` | Future — `claims["project_path"]` |
+| CircleCI | `https://oidc.circleci.com/org/<ID>` | `.../.well-known/jwks.json` | Future — org-specific mapping |
+
+Only GitHub Actions and Buildkite are in scope for initial implementation. GitLab and CircleCI can be added later by extending the `_ISSUERS` registry.
+
+### Implementation Scope
+
+| Component | Change | LOC |
+|-----------|--------|-----|
+| `utils/jwt_helper.py` | Multi-issuer dispatch + Buildkite mapping | ~45 |
+| `callback/lambda_function.py` | None — interface unchanged | 0 |
+| `callback/callback_handler.py` | None | 0 |
+| Tests | 3 new test cases (Buildkite verify, unknown pipeline, unknown issuer) | ~15 |
+| **Total** | | **~60** |
+
+Tracking issue: [pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326)
+
 ### File Changes
 
 | File | Change |
