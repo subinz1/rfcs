@@ -5,7 +5,7 @@
 * @jewelkm89
 * @subinz1
 
-**Status:** Draft — for CRCR Working Group discussion
+**Status:** Implemented — all phases shipped and live on HUD
 
 **Date:** June 2026
 
@@ -126,6 +126,8 @@ Direct upsert to DynamoDB (no Redis, no state machine)
 DynamoDB → ClickHouse replicator → HUD
 ```
 
+**Security boundary:** SHA validation proves the commit exists on `pytorch/pytorch`, but does not prove that the downstream repo actually ran CI against it. This is inherent to self-reporting and is an accepted trust trade-off — the OIDC token establishes *who* is reporting, and the allowlist controls *which* repos are trusted to self-report truthfully.
+
 ### Example: Downstream Nightly Workflow
 
 ```yaml
@@ -190,9 +192,12 @@ jobs:
 
 ## Metrics
 
-- **Nightly callback completion rate**: Percentage of expected nightly runs (per downstream cron schedule) that successfully report results via callback.
+- **Callbacks received per backend per day**: Count of nightly/periodic callback payloads ingested per downstream repo per 24h window. Observable from DynamoDB/ClickHouse without knowledge of downstream schedules.
+- **Time since last callback**: Per-backend staleness indicator — if the relay hasn't received a nightly callback from a registered backend in >36 hours, the health card on HUD marks it as degraded.
 - **HUD coverage**: Number of downstream backends with nightly results visible on `hud.pytorch.org/crcr`.
-- **Time-to-detection**: How quickly a nightly regression in a downstream backend is surfaced on HUD.
+- **Time-to-detection**: How quickly a nightly regression in a downstream backend is surfaced on HUD (measured from cron trigger to HUD row appearing).
+
+> **Note:** The relay has no knowledge of a downstream repo's cron schedule, so "expected runs" is undefined under the self-report model. Staleness detection (time since last callback) serves as the practical proxy for missed runs.
 
 ## Replay & Recovery
 
@@ -208,22 +213,20 @@ No centralized replay endpoint is needed at this stage. Automated missed-nightly
 
 ## Multi-CI Provider Authentication
 
-The self-report model currently relies on GitHub Actions OIDC tokens for caller identity. To support downstream backends that run CI on other platforms (e.g., Buildkite, GitLab CI), the relay's `jwt_helper` needs to become multi-issuer.
+The self-report model currently relies on GitHub Actions OIDC tokens for caller identity. To support downstream backends that run CI on other platforms (e.g., Buildkite, GitLab CI), the relay's `jwt_helper` has been extended to support multiple issuers.
 
-### Problem
+### Shipped Design: Issuer-Based Dispatch with External Config
 
-`jwt_helper.verify_oidc_token()` is hardcoded to validate tokens from a single issuer (`https://token.actions.githubusercontent.com`). Backends running on Buildkite (e.g., vLLM at `vllm-project/vllm`) cannot authenticate to the callback Lambda because their OIDC tokens come from a different issuer (`https://agent.buildkite.com`).
+> **Status:** Implemented in [pytorch/test-infra#8453](https://github.com/pytorch/test-infra/pull/8453) (multi-issuer OIDC) and [pytorch/test-infra#8468](https://github.com/pytorch/test-infra/pull/8468) (externalized config).
 
-### Design: Issuer-Based Dispatch
+The `verify_oidc_token` function:
 
-Add a registry of trusted issuers, each with its own JWKS endpoint and claim-extraction logic. The `verify_oidc_token` function becomes:
-
-1. Strip `Bearer ` prefix (existing)
-2. Decode the JWT header **unverified** to read the `iss` claim
-3. Look up the issuer in the registry → reject unknown issuers with 401
-4. Fetch the signing key from the issuer-specific JWKS endpoint
-5. Verify the signature, audience (`pytorch-cross-repo-ci-relay`), and issuer
-6. Extract `verified_repo` using the issuer-specific claim mapper
+1. Strips `Bearer ` prefix
+2. Decodes the JWT header **unverified** to read the `iss` claim
+3. Looks up the issuer in `_ISSUERS` → rejects unknown issuers with 401
+4. Fetches the signing key from the issuer-specific JWKS endpoint
+5. Verifies the signature, audience (`pytorch-cross-repo-ci-relay`), and issuer
+6. Extracts `verified_repo` using the issuer-specific claim mapper
 
 ```python
 _ISSUERS = {
@@ -233,46 +236,48 @@ _ISSUERS = {
     },
     "https://agent.buildkite.com": {
         "jwks": "https://agent.buildkite.com/.well-known/jwks",
-        "repo_claim": lambda claims: _buildkite_to_repo(
-            claims["organization_slug"], claims["pipeline_slug"]
-        ),
+        "repo_claim": lambda claims: _buildkite_to_repo(claims),
     },
 }
 ```
 
 ### Buildkite Identity Mapping
 
-Buildkite OIDC tokens have no `repository` claim. They provide `organization_slug` and `pipeline_slug`. A static mapping resolves these to a GitHub `owner/repo`:
+Buildkite OIDC tokens have no `repository` claim. They provide `organization_id` and `pipeline_id` (immutable UUIDs). The mapping from these UUIDs to a GitHub `owner/repo` is maintained in an external config file (`config/ci_providers.yml`), loaded at runtime:
 
-```python
-_BUILDKITE_REPO_MAP = {
-    ("vllm", "vllm-ci"): "vllm-project/vllm",
-    # Add more as backends onboard
-}
+```yaml
+# config/ci_providers.yml
+buildkite:
+  - organization_id: "a1b2c3d4-..."   # vllm org UUID
+    pipeline_id: "e5f6g7h8-..."        # ci pipeline UUID
+    github_repo: "vllm-project/vllm"
+    required_claims:
+      build_branch: ["main"]           # only trust tokens from main branch builds
 ```
 
-The mapping is maintained in `jwt_helper.py` so that identity resolution is complete before the callback handler runs. Everything downstream of `verified_repo` (callback handler, allowlist, Redis, HUD) is unchanged.
+**Key design decisions:**
+- Keyed on immutable **UUIDs** (`organization_id` / `pipeline_id`), not slugs. Slugs are renameable — a released slug can be claimed by another org, which would be a privilege escalation.
+- `required_claims` constrains which builds can authenticate. For vLLM, this pins to `build_branch: [main]` because the pipeline builds fork PRs — any job in a fork PR build can mint a token, so without branch pinning any fork could impersonate the vLLM backend.
+- Config is loaded at Lambda startup, cached in-process.
 
 ### CI Provider Reference
 
 | CI Engine | Issuer (`iss`) | JWKS Endpoint | Repo Claim |
 |-----------|---------------|---------------|------------|
 | GitHub Actions | `https://token.actions.githubusercontent.com` | `.../.well-known/jwks` | `claims["repository"]` |
-| Buildkite | `https://agent.buildkite.com` | `.../.well-known/jwks` | `(organization_slug, pipeline_slug)` → static map |
+| Buildkite | `https://agent.buildkite.com` | `.../.well-known/jwks` | UUID lookup from `ci_providers.yml` |
 | GitLab CI | `https://gitlab.com` | `.../-/oauth/discovery/keys` | Future — `claims["project_path"]` |
 | CircleCI | `https://oidc.circleci.com/org/<ID>` | `.../.well-known/jwks.json` | Future — org-specific mapping |
 
-Only GitHub Actions and Buildkite are in scope for initial implementation. GitLab and CircleCI can be added later by extending the `_ISSUERS` registry.
+Only GitHub Actions and Buildkite are implemented. GitLab and CircleCI can be added by extending the `_ISSUERS` registry and `ci_providers.yml`.
 
-### Implementation Scope
+### Implementation (shipped)
 
-| Component | Change | LOC |
+| Component | Change | PR |
 |-----------|--------|-----|
-| `utils/jwt_helper.py` | Multi-issuer dispatch + Buildkite mapping | ~45 |
-| `callback/lambda_function.py` | None — interface unchanged | 0 |
-| `callback/callback_handler.py` | None | 0 |
-| Tests | 3 new test cases (Buildkite verify, unknown pipeline, unknown issuer) | ~15 |
-| **Total** | | **~60** |
+| `utils/jwt_helper.py` | Multi-issuer dispatch + Buildkite UUID mapping | [#8453](https://github.com/pytorch/test-infra/pull/8453) |
+| `config/ci_providers.yml` | Externalized provider config with `required_claims` | [#8468](https://github.com/pytorch/test-infra/pull/8468) |
+| Tests | Buildkite verify, unknown pipeline, unknown issuer, branch pinning | included in #8453 |
 
 Tracking issue: [pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326)
 
@@ -304,16 +309,18 @@ Both options were set aside in favor of the self-report model because they requi
 
 ## Resolution
 
-TBD — pending WG discussion.
+Implemented — all phases shipped and operational.
 
 ### Level of Support
 
-TBD
+Accepted — adopted by CRCR Working Group. Nightly CI is live for `pytorch/crcr-test` and `TorchedHat/pytorch-redhat-ci`. Buildkite OIDC onboarded for `vllm-project/vllm`.
 
 ### Next Steps
 
-TBD
+- Onboard additional downstream backends requesting nightly reporting
+- Consider automated staleness alerting (>36h without callback → degraded health)
+- Extend `ci_providers.yml` for GitLab CI providers when demand arises
 
 #### Tracking Issue
 
-TBD
+[pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326)
