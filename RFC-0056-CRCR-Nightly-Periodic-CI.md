@@ -293,13 +293,13 @@ Tracking issue: [pytorch/test-infra#8326](https://github.com/pytorch/test-infra/
 
 ## Previously Considered Options
 
-Two alternative approaches were evaluated before arriving at the authenticated self-report design:
+Two alternative approaches were evaluated. The authenticated self-report model (described above) was selected and shipped.
 
 **Option A: EventBridge Cron → Webhook Lambda.** An AWS EventBridge rule on a cron schedule invokes the webhook Lambda directly. The Lambda fetches `pytorch/pytorch` main HEAD SHA, builds a synthetic `client_payload`, and dispatches to downstream repos via the existing `_dispatch_to_allowlist()` path. This preserves the full state machine and guarantees SHA alignment across all backends. However, it introduces new AWS infrastructure (EventBridge rule, Terraform config, CloudWatch alarms) and centralizes schedule control — downstream repos cannot customize their own cron timing without additional EventBridge rules.
 
 **Option B: Upstream Cron Workflow in pytorch/pytorch → Webhook Lambda.** A `schedule: cron` workflow in `pytorch/pytorch` constructs a synthetic payload and POSTs it to the webhook Lambda endpoint with OIDC authentication. This gives upstream visibility (schedule appears in the Actions tab) and built-in manual re-trigger via `workflow_dispatch`. However, it requires adding a second authentication path (OIDC or shared secret) to the webhook Lambda, changes to `pytorch/pytorch` requiring maintainer approval, and depends on GitHub cron reliability.
 
-Both options were set aside in favor of the self-report model because they require either new AWS infrastructure or upstream repo changes, while the proposed design keeps all changes within the callback Lambda and downstream repos.
+**Decision:** Both options were rejected. The self-report model was adopted because it requires no new AWS infrastructure, no upstream repo changes, and gives each downstream repo full control over its own schedule. This is now implemented and live.
 
 ## Prior Art
 
