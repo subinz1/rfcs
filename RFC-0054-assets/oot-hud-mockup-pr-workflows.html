@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyTorch CI HUD — PR View with CRCR Workflows (Mockup)</title>
+<style>
+:root {
+  --background-color: #ffffff;
+  --text-color: #212529;
+  --link-color: #0064cf;
+  --navbar-bg: linear-gradient(326deg, rgba(255,246,246,0.5), rgba(255,247,236,0.5));
+  --navbar-shadow: 0 -4px 20px 0px #c2c2c2;
+  --dropdown-bg: white;
+  --code-bg: aliceblue;
+  --icon-color: black;
+  --dropdown-shadow: 0 -4px 20px 0px #c2c2c2;
+  --button-color: #212529;
+  --button-bg: transparent;
+  --border-color: #e1e1e1;
+  --commit-message-bg: whitesmoke;
+  --button-hover-bg: lightgrey;
+  --workflow-box-fail-bg: mistyrose;
+  --workflow-box-pending-bg: azure;
+  --workflow-box-success-bg: #efffef;
+  --color-success: #4caf50;
+  --color-failure: #f44336;
+  --color-grey: #9e9e9e;
+  --color-light-grey: #bdbdbd;
+  --color-warning: #ff9800;
+  --color-pending: #ffc107;
+  --color-flaky: #8bc34a;
+  --drci-btn-bg: #1976d2;
+  --drci-btn-color: #fff;
+}
+.dark-mode {
+  --background-color: #1e1e1e;
+  --text-color: #e0e0e0;
+  --link-color: #4a90e2;
+  --navbar-bg: linear-gradient(326deg, rgba(42,42,42,0.8), rgba(45,45,45,0.8));
+  --navbar-shadow: 0 -4px 20px 0px rgba(0,0,0,0.4);
+  --dropdown-bg: #2a2a2a;
+  --code-bg: #2a2a2a;
+  --icon-color: #e0e0e0;
+  --dropdown-shadow: 0 -4px 20px 0px rgba(0,0,0,0.3);
+  --button-color: #e0e0e0;
+  --button-bg: transparent;
+  --border-color: #3a3a3a;
+  --commit-message-bg: #2a2a2a;
+  --button-hover-bg: #444;
+  --workflow-box-fail-bg: #4b2c2c;
+  --workflow-box-pending-bg: #0c232d;
+  --workflow-box-success-bg: #0d3010;
+  --drci-btn-bg: #1976d2;
+  --drci-btn-color: #fff;
+}
+
+html { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif; }
+h1 { margin: 0; }
+h2 { margin: 0.5em 0; }
+body { margin: 0; padding: 5px; background-color: var(--background-color); color: var(--text-color); transition: background-color 0.3s ease, color 0.3s ease; }
+a { text-decoration: none; color: var(--link-color); }
+* { box-sizing: border-box; }
+button { cursor: pointer; display: inline-block; font-weight: 400; color: var(--button-color); text-align: center; vertical-align: middle; user-select: none; border: 1px solid transparent; border-radius: 0.25rem; background-color: var(--button-bg); }
+input, select { background-color: var(--dropdown-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 0.25rem; }
+
+/* NavBar */
+.navbar { display: flex; padding: 0 clamp(0.5rem, 1vw, 1rem); background: var(--navbar-bg); box-shadow: var(--navbar-shadow); width: 100%; min-height: 60px; align-items: center; position: relative; z-index: 1300; flex-wrap: wrap; gap: clamp(0.5rem, 2vw, 1.5rem); font-size: clamp(14px, 1vw, 16px); }
+.navbar li { padding: clamp(0.5rem, 0.8vw, 0.7rem) clamp(0.6rem, 1vw, 0.8rem); position: relative; display: flex; align-items: center; }
+.navbar ul { list-style: none; margin: 0; padding: 0; }
+.navbarlinkslist { display: flex; align-items: center; flex-wrap: wrap; margin: 0; padding: 0; height: 100%; }
+.homeLink { font-weight: bold; padding-right: 10px; }
+.nav-right { margin-left: auto; display: flex; align-items: center; }
+.dropdown-trigger { position: relative; cursor: pointer; }
+.dropdown-menu { position: absolute; top: 100%; left: 0; box-shadow: var(--dropdown-shadow); z-index: 9999; min-width: 12rem; padding: 0.5rem 0; background-color: var(--dropdown-bg); display: none; border-radius: 4px; }
+.dropdown-trigger:hover .dropdown-menu { display: block; }
+.dropdown-menu a { display: block; padding: 0.35rem 0.8rem; font-size: 13px; color: var(--text-color); white-space: nowrap; }
+.dropdown-menu a:hover { background: rgba(0,0,0,0.05); }
+.dark-mode .dropdown-menu a:hover { background: rgba(255,255,255,0.05); }
+
+/* Conclusion chars */
+.conclusion { font-family: monospace; font-size: 1rem; font-weight: bold; display: inline-block; width: 14px; text-align: center; }
+.c-success { color: var(--color-success); }
+.c-failure { color: var(--color-failure); }
+.c-pending { color: var(--color-pending); }
+.c-cancelled { color: var(--color-failure); }
+.c-skipped { color: var(--color-grey); }
+.c-warning { color: var(--color-warning); }
+.c-none { color: var(--color-light-grey); }
+.c-flaky { color: var(--color-flaky); }
+
+.theme-picker { background: none; border: 1px solid var(--border-color); border-radius: 4px; padding: 4px 10px; cursor: pointer; color: var(--text-color); font-size: 14px; }
+
+/* commit.module.css */
+.commitMessage { background-color: var(--commit-message-bg); white-space: pre-wrap; max-height: 13em; overflow: auto; margin: 10px; padding: 8px; font-size: 0.85rem; border-radius: 4px; }
+.workflowContainer { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; }
+.workflowBoxFail { border: 1px solid gray; padding: 10px; border-radius: 5px; background-color: var(--workflow-box-fail-bg); }
+.workflowBoxSuccess { border: 1px solid gray; padding: 10px; border-radius: 5px; background-color: var(--workflow-box-success-bg); }
+.workflowBoxPending { border: 1px solid gray; padding: 10px; border-radius: 5px; background-color: var(--workflow-box-pending-bg); }
+.buttonBorder { border: 1px solid; font-size: 0.8rem; padding: 2px 6px; margin-right: 4px; }
+.buttonBorder:hover { background-color: var(--button-hover-bg); }
+
+/* Job line styling */
+.job-line { margin: 2px 0; line-height: 1.6; }
+.job-line a { font-size: 0.85rem; }
+.job-sub { font-size: 0.75rem; color: #888; margin-left: 18px; }
+.job-sub .mini-btn { font-size: 8px; padding: 0 1px; color: green; margin: 2px; border: 1px solid; border-radius: 2px; text-decoration: none; display: inline-block; }
+
+/* Workflow box header */
+.wf-header { display: flex; justify-content: space-between; align-items: flex-start; }
+.wf-header-left h2 { font-size: 1.25rem; font-weight: bold; margin: 8px 0; }
+.wf-header-left .job-status-label { font-weight: bold; margin-bottom: 8px; }
+.wf-header-right { display: flex; flex-direction: column; gap: 6px; align-items: flex-end; font-size: 0.8rem; }
+.wf-header-right select { font-size: 0.8rem; padding: 2px 6px; }
+.wf-header-right .search-row { display: flex; gap: 2px; }
+.wf-header-right .search-row input[type="text"] { width: 15em; font-size: 0.8rem; padding: 2px 4px; }
+.wf-header-right .search-row input[type="submit"] { font-size: 0.8rem; padding: 2px 6px; }
+
+/* CRCR badge */
+.crcr-level-badge { display: inline-block; font-size: 0.6rem; padding: 1px 5px; border-radius: 8px; border: 1px solid #0288d1; color: #0288d1; font-weight: 600; margin-left: 6px; vertical-align: middle; }
+
+/* CRCR section — spans full grid width, contains its own 2-col grid */
+.crcr-section { grid-column: 1 / -1; border: 2px solid #0288d1; border-radius: 8px; padding: 12px; }
+.crcr-section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.crcr-section-header h2 { font-size: 1.3rem; margin: 0; }
+.crcr-section-header .crcr-tag { display: inline-block; font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; background: #0288d1; color: #fff; font-weight: 600; }
+.crcr-backends-grid { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; }
+
+/* Dr. CI button */
+.drci-btn { background-color: var(--drci-btn-bg); color: var(--drci-btn-color); border: none; padding: 6px 16px; border-radius: 4px; font-size: 0.875rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.02857em; cursor: pointer; }
+
+/* PR header row */
+.pr-header-row { display: flex; justify-content: space-between; align-items: flex-start; }
+
+/* Version control links */
+.vc-links { margin: 4px 0 8px 10px; font-size: 0.9rem; }
+
+/* FilteredJobList sections */
+.filtered-section h2 { font-size: 1.17em; }
+.filtered-section ul { margin: 4px 0 12px 0; padding-left: 20px; }
+.filtered-section li { margin: 4px 0; }
+.filtered-section .job-links { margin-left: 18px; font-size: 0.8rem; color: #888; }
+.filtered-section .job-links a { margin-right: 8px; font-size: 0.8rem; }
+
+/* Log viewer (collapsed) */
+.log-viewer { background: #1e1e1e; color: #d4d4d4; padding: 8px 12px; margin: 4px 0 8px 18px; border-radius: 4px; font-family: "Fira Code", "Consolas", monospace; font-size: 0.75rem; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+
+/* Job annotation toggle */
+.annotation-toggle { margin: 2px 0 8px 18px; font-size: 0.8rem; }
+.annotation-toggle select { font-size: 0.8rem; padding: 1px 4px; margin-left: 4px; }
+</style>
+</head>
+<body class="dark-mode">
+
+<!-- ═══════════ NAVBAR ═══════════ -->
+<nav class="navbar">
+  <div>
+    <ul class="navbarlinkslist">
+      <li class="homeLink"><a href="oot-hud-mockup.html">PyTorch CI HUD</a></li>
+      <li><a href="oot-hud-mockup.html">PyTorch</a></li>
+      <li><a href="#">ExecuTorch</a></li>
+      <li><a href="#">TorchVision</a></li>
+      <li><a href="#">TorchAudio</a></li>
+      <li><a href="#">Helion</a></li>
+      <li><a href="oot-hud-mockup-crcr-summary.html">CRCR</a></li>
+    </ul>
+  </div>
+  <div class="nav-right">
+    <ul class="navbarlinkslist">
+      <li><a href="#">Help</a></li>
+      <li><a href="#">Requests</a></li>
+      <li><a href="#">KPIs</a></li>
+      <li class="dropdown-trigger">
+        <span>Benchmarks &#9662;</span>
+        <div class="dropdown-menu"><a href="#">TorchBench</a><a href="#">Inductor Perf</a></div>
+      </li>
+      <li class="dropdown-trigger">
+        <span>Metrics &#9662;</span>
+        <div class="dropdown-menu"><a href="#">Metrics</a><a href="#">Flambeau</a><a href="#">vLLM CI metrics</a><a href="#">Autorevert Metrics</a><a href="#">Claude Billing</a><a href="#">CRCR Metrics</a></div>
+      </li>
+      <li class="dropdown-trigger">
+        <span>Dev Infra &#9662;</span>
+        <div class="dropdown-menu"><a href="#">TTS</a><a href="#">Queue Time Analysis</a><a href="#">Nightly Dashboard</a><a href="#">Disabled Tests</a><a href="#">Cost Analysis</a><a href="#">PyTorch Runners</a><a href="#">Test File Reports</a><a href="#">Mac Test Stats</a></div>
+      </li>
+      <li><button class="theme-picker" onclick="document.body.classList.toggle('dark-mode')" title="Toggle dark mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18V4c4.41 0 8 3.59 8 8s-3.59 8-8 8z"/></svg>
+      </button></li>
+    </ul>
+  </div>
+</nav>
+
+<div style="padding: 12px;">
+
+  <!-- ═══════════ 1. PR HEADER + Dr. CI ═══════════ -->
+  <div class="pr-header-row">
+    <h1 style="font-size: 1.5rem; font-weight: 400;">
+      Fix system Eigen 5.0.x detection in CMake
+      <code style="font-size: 0.85em;"><a href="https://github.com/pytorch/pytorch/pull/188793">#188793</a></code>
+    </h1>
+    <button class="drci-btn">Update Dr. CI</button>
+  </div>
+
+  <!-- ═══════════ 2. COMMIT SELECTOR ═══════════ -->
+  <div style="margin: 8px 0 4px;">
+    Commit:
+    <select style="padding: 4px 8px; font-size: 13px;">
+      <option>Fix system Eigen 5.0.x detection in CMake (a1b2c3)</option>
+      <option>Address review comments (e8f4d2)</option>
+    </select>
+  </div>
+
+  <!-- ═══════════ 3. VERSION CONTROL LINKS ═══════════ -->
+  <div class="vc-links">
+    <a href="https://github.com/pytorch/pytorch/pull/188793/commits/a1b2c3d">GitHub</a>
+  </div>
+
+  <!-- ═══════════ 4. COMMIT MESSAGE ═══════════ -->
+  <article class="commitMessage">Fixes detection of system-installed Eigen 5.0.x in CMake's find_package.
+The existing FindEigen3.cmake module only checked for Eigen3Config.cmake,
+missing the case where Eigen 5.0+ installs as Eigen3 with a different
+version scheme.
+
+Tested on Ubuntu 24.04 with Eigen 5.0.1 installed via apt.
+
+Pull Request resolved: https://github.com/pytorch/pytorch/pull/188793</article>
+
+  <!-- ═══════════ 5. FAILED JOBS ═══════════ -->
+  <div class="filtered-section">
+    <h2>Failed jobs</h2>
+    <ul>
+      <li>
+        <span class="conclusion c-failure">X</span>
+        <a href="#">win-vs2022-cuda13.0-py3 / test (default, 1, 4, lf-w-x86i-16-64)</a>
+        <div class="job-links">
+          <a href="#">JobLinks</a>
+          <a href="#">Raw log</a>
+          <a href="#">Utilization Report</a>
+        </div>
+        <div class="log-viewer">FAIL [  0.813s] test_torch.TestTorchDeviceTypeCUDA::test_mm_cuda
+Traceback (most recent call last):
+  File "test/test_torch.py", line 4523, in test_mm_cuda
+    self.assertEqual(result, expected)
+AssertionError: Tensor(...) != Tensor(...)
+Mismatched elements: 12 / 1024 (1.2%)</div>
+        <div class="annotation-toggle">
+          Classify:
+          <select>
+            <option value="">Select classification</option>
+            <option>Infrastructure</option>
+            <option>Broken trunk</option>
+            <option>Flaky</option>
+            <option>Not my PR</option>
+          </select>
+        </div>
+      </li>
+      <li>
+        <span class="conclusion c-failure">X</span>
+        <a href="#">linux-jammy-cuda13.0-py3.10-gcc11 / test (distributed, 1, 3, lf-l-x86iavx512-8-64)</a>
+        <div class="job-links">
+          <a href="#">JobLinks</a>
+          <a href="#">Raw log</a>
+          <a href="#">Utilization Report</a>
+        </div>
+        <div class="log-viewer">FAIL [  2.140s] test_distributed_spawn.DistributedTest::test_allreduce_nccl
+torch.distributed.DistBackendError: NCCL error in: ProcessGroupNCCL.cpp:1234
+ncclInternalError: Internal check failed.
+Last error: Cuda failure 700 'an illegal memory access was encountered'</div>
+        <div class="annotation-toggle">
+          Classify:
+          <select>
+            <option value="">Select classification</option>
+            <option>Infrastructure</option>
+            <option>Broken trunk</option>
+            <option>Flaky</option>
+            <option>Not my PR</option>
+          </select>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 6. FAILED UNSTABLE JOBS ═══════════ -->
+  <div class="filtered-section">
+    <h2>Failed unstable jobs</h2>
+    <ul>
+      <li>
+        <span class="conclusion c-warning">X</span>
+        <a href="#">linux-jammy-py3.10-clang18 / test (dynamo, 2, 4, lf-l-x86iavx512-8-64)</a>
+        <span style="font-size: 0.8rem; color: var(--color-warning);"> [unstable]</span>
+        <div class="job-links">
+          <a href="#">JobLinks</a>
+          <a href="#">Raw log</a>
+        </div>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 7. PENDING JOBS ═══════════ -->
+  <div class="filtered-section">
+    <h2>Pending jobs</h2>
+    <ul>
+      <li><span class="conclusion c-pending">?</span> <a href="#">win-vs2022-cuda13.0-py3 / build</a></li>
+      <li><span class="conclusion c-pending">?</span> <a href="#">linux-jammy-cuda13.0-py3.10-gcc11 / build-osdc</a></li>
+      <li><span class="conclusion c-pending">?</span> <a href="#">dynamo-cpython-test / test-osdc (dynamo_cpython, 1, 1, lf-l-x86iavx512-8-64)</a></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 8. QUEUED JOBS ═══════════ -->
+  <div class="filtered-section">
+    <h2>Queued jobs</h2>
+    <ul>
+      <li><span class="conclusion c-none">Q</span> <a href="#">inductor-build / build-osdc</a></li>
+      <li><span class="conclusion c-none">Q</span> <a href="#">libtorch-linux-jammy-cuda13.0-py3.10-gcc11-debug / build-osdc</a></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════ 9. WORKFLOWS (2-column grid) ═══════════ -->
+  <h1 style="font-size: 1.5rem; margin: 20px 0 10px;">Workflows</h1>
+
+  <div class="workflowContainer">
+
+    <!-- ─── pull ─── -->
+    <div class="workflowBoxFail">
+      <div class="wf-header">
+        <div class="wf-header-left">
+          <h2>pull</h2>
+          <div class="job-status-label">Job Status</div>
+        </div>
+        <div class="wf-header-right">
+          <div><select><option>Select Workflow ID</option><option>35291746123 (Attempt 1)</option></select> <span title="By default the box will show what it believes to be the latest jobs." style="cursor: help; color: #888;">&#9432;</span></div>
+          <div><button class="buttonBorder">Show Additional Test Info</button><button class="buttonBorder">View as Gantt Chart</button></div>
+          <div class="search-row"><input type="text" placeholder="Search raw logs with regex"><input type="submit" value="Search"></div>
+        </div>
+      </div>
+
+      <div class="job-line"><span class="conclusion c-failure">X</span> <a href="#">win-vs2022-cuda13.0-py3 / test (default, 1, 4, lf-w-x86i-16-64)</a></div>
+      <div class="job-sub">Queued: 3.2m Duration: 18.4m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-failure">X</span> <a href="#">linux-jammy-cuda13.0-py3.10-gcc11 / test (distributed, 1, 3, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 1.1m Duration: 22.7m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-warning">X</span> <a href="#">linux-jammy-py3.10-clang18 / test (dynamo, 2, 4, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 1.8m Duration: 14.3m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">win-vs2022-cuda13.0-py3 / build</a></div>
+      <div class="job-sub">Queued: 4.9m Running: 12.9m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">dynamo-cpython-test / test-osdc (dynamo_cpython, 1, 1, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 1.3m Running: 5.8m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">linux-jammy-cuda13.0-py3.10-gcc11 / build-osdc</a></div>
+      <div class="job-sub">Queued: 46.0s Running: 17.0m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 1, 5, lf-l-arm64q4-16-62)</a></div>
+      <div class="job-sub">Queued: 2.8m Duration: 6.2m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 2, 5, lf-l-arm64q4-16-62)</a></div>
+      <div class="job-sub">Queued: 2.8m Duration: 5.9m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 3, 5, lf-l-arm64q4-16-62)</a></div>
+      <div class="job-sub">Queued: 1.8m Duration: 6.0m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 4, 5, lf-l-arm64q4-16-62)</a></div>
+      <div class="job-sub">Queued: 1.8m Duration: 5.7m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 5, 5, lf-l-arm64q4-16-62)</a></div>
+      <div class="job-sub">Queued: 2.7m Duration: 5.5m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (openreg, 1, 1, lf-l-arm64q4-16-62)</a></div>
+      <div class="job-sub">Queued: 3.7m Duration: 3.2m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-py3.10-clang18 / test-osdc (crossref, 1, 2, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 1.9m Duration: 18.1m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-py3.10-clang18 / test-osdc (crossref, 2, 2, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 48.0s Duration: 7.1m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-py3.10-clang18 / test-osdc (default, 1, 5, lf-l-x86iavx512-16-128)</a></div>
+      <div class="job-sub">Queued: 1.5m Duration: 6.4m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-py3.10-clang18 / test-osdc (default, 2, 5, lf-l-x86iavx512-16-128)</a></div>
+      <div class="job-sub">Queued: 1.4m Duration: 6.8m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-cuda13.0-cudnn9-py3.10-clang18 / build-osdc</a></div>
+      <div class="job-sub">Queued: 1.9m Duration: 17.5m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+    </div>
+
+    <!-- ─── trunk ─── -->
+    <div class="workflowBoxPending">
+      <div class="wf-header">
+        <div class="wf-header-left">
+          <h2>trunk</h2>
+          <div class="job-status-label">Job Status</div>
+        </div>
+        <div class="wf-header-right">
+          <div><select><option>Select Workflow ID</option><option>35291746280 (Attempt 1)</option></select> <span title="By default the box will show what it believes to be the latest jobs." style="cursor: help; color: #888;">&#9432;</span></div>
+          <div><button class="buttonBorder">Show Additional Test Info</button><button class="buttonBorder">View as Gantt Chart</button></div>
+          <div class="search-row"><input type="text" placeholder="Search raw logs with regex"><input type="submit" value="Search"></div>
+        </div>
+      </div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">inductor-build / build-osdc</a></div>
+      <div class="job-sub">Queued: 1.5m Running: 16.3m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">libtorch-linux-jammy-cuda13.0-py3.10-gcc11-debug / build-osdc</a></div>
+      <div class="job-sub">Queued: 43.0s Running: 17.1m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">linux-jammy-cuda13.0-py3.10-gcc11 / build-osdc</a></div>
+      <div class="job-sub">Queued: 46.0s Running: 17.0m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">linux-jammy-cuda13.0-py3.10-gcc11-no-ops / build-osdc</a></div>
+      <div class="job-sub">Queued: 1.5m Running: 16.3m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">linux-jammy-py3.10-gcc11-full-debug-build-only / build-osdc</a></div>
+      <div class="job-sub">Queued: 1.5m Running: 16.3m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-pending">?</span> <a href="#">linux-jammy-rcm-py3.10-mi350 / build-osdc</a></div>
+      <div class="job-sub">Queued: 2.3m Running: 15.4m <a class="mini-btn" href="#">Raw logs</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 1, 5, mt-l-arm64q3-16-62)</a></div>
+      <div class="job-sub">Queued: 1.4m Duration: 6.8m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-aarch64-py3.10 / test-osdc (default, 2, 5, mt-l-arm64q3-16-62)</a></div>
+      <div class="job-sub">Queued: 2.3m Duration: 5.7m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">macos-py3-arm64 / test (default, 1, 3, macos-m1-stable)</a></div>
+      <div class="job-sub">Queued: 4.0s Duration: 5.2m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">macos-py3-arm64 / test (default, 2, 3, macos-m1-stable)</a></div>
+      <div class="job-sub">Queued: 4.0s Duration: 5.1m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">macos-py3-arm64 / test (default, 3, 3, macos-m1-stable)</a></div>
+      <div class="job-sub">Queued: 4.0s Duration: 4.9m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-py3.10-gcc11 / test-osdc (default, 1, 5, mt-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 1.2m Duration: 8.3m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+    </div>
+
+    <!-- ─── Lint ─── -->
+    <div class="workflowBoxSuccess">
+      <div class="wf-header">
+        <div class="wf-header-left">
+          <h2>Lint</h2>
+          <div class="job-status-label">Job Status</div>
+        </div>
+        <div class="wf-header-right">
+          <div><select><option>Select Workflow ID</option><option>35291733891 (Attempt 1)</option></select> <span title="By default the box will show what it believes to be the latest jobs." style="cursor: help; color: #888;">&#9432;</span></div>
+          <div><button class="buttonBorder">Show Additional Test Info</button><button class="buttonBorder">View as Gantt Chart</button></div>
+          <div class="search-row"><input type="text" placeholder="Search raw logs with regex"><input type="submit" value="Search"></div>
+        </div>
+      </div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">lintrunner / linux-job</a></div>
+      <div class="job-sub">Queued: 18.0s Duration: 4.2m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">quick-checks / linux-job</a></div>
+      <div class="job-sub">Queued: 14.0s Duration: 1.8m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">toc</a></div>
+      <div class="job-sub">Queued: 12.0s Duration: 38.0s <a class="mini-btn" href="#">Raw logs</a></div>
+    </div>
+
+    <!-- ─── linux-build ─── -->
+    <div class="workflowBoxSuccess">
+      <div class="wf-header">
+        <div class="wf-header-left">
+          <h2>linux-build</h2>
+          <div class="job-status-label">Job Status</div>
+        </div>
+        <div class="wf-header-right">
+          <div><select><option>Select Workflow ID</option><option>35291746301 (Attempt 1)</option></select> <span title="By default the box will show what it believes to be the latest jobs." style="cursor: help; color: #888;">&#9432;</span></div>
+          <div><button class="buttonBorder">Show Additional Test Info</button><button class="buttonBorder">View as Gantt Chart</button></div>
+          <div class="search-row"><input type="text" placeholder="Search raw logs with regex"><input type="submit" value="Search"></div>
+        </div>
+      </div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-cuda12.6-py3.10-gcc11 / build-osdc</a></div>
+      <div class="job-sub">Queued: 38.0s Duration: 16.8m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-cuda13.0-cudnn9-py3.10-clang18 / build-osdc</a></div>
+      <div class="job-sub">Queued: 42.0s Duration: 17.2m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-noble-py3.12-gcc11 / build-osdc</a></div>
+      <div class="job-sub">Queued: 35.0s Duration: 15.9m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+    </div>
+
+    <!-- ─── inductor ─── -->
+    <div class="workflowBoxSuccess">
+      <div class="wf-header">
+        <div class="wf-header-left">
+          <h2>inductor</h2>
+          <div class="job-status-label">Job Status</div>
+        </div>
+        <div class="wf-header-right">
+          <div><select><option>Select Workflow ID</option><option>35291746512 (Attempt 1)</option></select> <span title="By default the box will show what it believes to be the latest jobs." style="cursor: help; color: #888;">&#9432;</span></div>
+          <div><button class="buttonBorder">Show Additional Test Info</button><button class="buttonBorder">View as Gantt Chart</button></div>
+          <div class="search-row"><input type="text" placeholder="Search raw logs with regex"><input type="submit" value="Search"></div>
+        </div>
+      </div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">inductor-build / build-osdc</a></div>
+      <div class="job-sub">Queued: 1.5m Duration: 16.3m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">inductor-A100 / test (inductor, 1, 2, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 2.1m Duration: 42.7m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">inductor-A100 / test (inductor, 2, 2, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 2.3m Duration: 38.4m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">inductor-cpu / test (inductor_timm, 1, 2, lf-l-x86iavx512-16-128)</a></div>
+      <div class="job-sub">Queued: 1.8m Duration: 24.6m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+    </div>
+
+    <!-- ─── periodic ─── -->
+    <div class="workflowBoxSuccess">
+      <div class="wf-header">
+        <div class="wf-header-left">
+          <h2>periodic</h2>
+          <div class="job-status-label">Job Status</div>
+        </div>
+        <div class="wf-header-right">
+          <div><select><option>Select Workflow ID</option><option>35291746601 (Attempt 1)</option></select> <span title="By default the box will show what it believes to be the latest jobs." style="cursor: help; color: #888;">&#9432;</span></div>
+          <div><button class="buttonBorder">Show Additional Test Info</button><button class="buttonBorder">View as Gantt Chart</button></div>
+          <div class="search-row"><input type="text" placeholder="Search raw logs with regex"><input type="submit" value="Search"></div>
+        </div>
+      </div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-cuda12.6-py3.10-gcc11 / test (slow, 1, 2, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 3.1m Duration: 45.2m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+
+      <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">linux-jammy-py3.10-clang18 / test (slow, 1, 2, lf-l-x86iavx512-8-64)</a></div>
+      <div class="job-sub">Queued: 2.8m Duration: 38.7m <a class="mini-btn" href="#">Raw logs</a> <a class="mini-btn" href="#">Utilization Report</a></div>
+    </div>
+
+    <!-- ═══════════ CRCR SECTION — spans full width ═══════════ -->
+    <div class="crcr-section">
+      <div class="crcr-section-header">
+        <h2>Cross-Repo CI Backends</h2>
+        <span class="crcr-tag">CRCR</span>
+        <span style="font-size: 0.85rem; color: #888;">(3 backends dispatched &mdash; L3/L4 only)</span>
+      </div>
+
+      <div class="crcr-backends-grid">
+
+        <!-- ─── CRCR Backend 1: TorchedHat/pytorch-redhat-ci ─── -->
+        <div class="workflowBoxSuccess">
+          <div class="wf-header">
+            <div class="wf-header-left">
+              <h2><a href="oot-hud-mockup-crcr-backend.html" style="color: inherit;">TorchedHat/pytorch-redhat-ci</a> <span class="crcr-level-badge" style="background: #ed6c02;">L3</span></h2>
+              <div class="job-status-label">Job Status</div>
+            </div>
+            <div class="wf-header-right">
+              <div><select><option>Select Workflow ID</option><option>35291800012 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — RHEL 9.6 CI" style="cursor: help; color: #888;">&#9432;</span></div>
+            </div>
+          </div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">build</a></div>
+          <div class="job-sub">Duration: 32m 14s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">cpu-tests</a></div>
+          <div class="job-sub">Duration: 1h 42m <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-failure">X</span> <a href="#">inductor-tests</a></div>
+          <div class="job-sub">Duration: 58m 22s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
+          <div class="job-sub">Duration: 3.0s <a class="mini-btn" href="#">Run</a></div>
+        </div>
+
+        <!-- ─── CRCR Backend 2: intel/intel-extension-for-pytorch ─── -->
+        <div class="workflowBoxSuccess">
+          <div class="wf-header">
+            <div class="wf-header-left">
+              <h2><a href="#" style="color: inherit;">intel/intel-extension-for-pytorch</a> <span class="crcr-level-badge" style="background: #ed6c02;">L3</span></h2>
+              <div class="job-status-label">Job Status</div>
+            </div>
+            <div class="wf-header-right">
+              <div><select><option>Select Workflow ID</option><option>35291810045 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — Intel XPU CI" style="cursor: help; color: #888;">&#9432;</span></div>
+            </div>
+          </div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">build</a></div>
+          <div class="job-sub">Duration: 18m 44s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">test-xpu-ops</a></div>
+          <div class="job-sub">Duration: 27m 31s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
+          <div class="job-sub">Duration: 2.0s <a class="mini-btn" href="#">Run</a></div>
+        </div>
+
+        <!-- ─── CRCR Backend 3: pytorch-labs/cambricon-pytorch ─── -->
+        <div class="workflowBoxSuccess">
+          <div class="wf-header">
+            <div class="wf-header-left">
+              <h2><a href="#" style="color: inherit;">pytorch-labs/cambricon-pytorch</a> <span class="crcr-level-badge" style="background: #7b1fa2;">L4</span></h2>
+              <div class="job-status-label">Job Status</div>
+            </div>
+            <div class="wf-header-right">
+              <div><select><option>Select Workflow ID</option><option>35291820067 (Attempt 1)</option></select> <span title="Cross-Repository CI Relay — Cambricon MLU CI" style="cursor: help; color: #888;">&#9432;</span></div>
+            </div>
+          </div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">build-and-test</a></div>
+          <div class="job-sub">Duration: 32m 05s <a class="mini-btn" href="#">Run</a></div>
+
+          <div class="job-line"><span class="conclusion c-success">O</span> <a href="#">send-callbacks</a></div>
+          <div class="job-sub">Duration: 2.0s <a class="mini-btn" href="#">Run</a></div>
+        </div>
+
+      </div><!-- end crcr-backends-grid -->
+    </div><!-- end crcr-section -->
+
+  </div><!-- end workflowContainer -->
+
+</div>
+
+<!-- Mockup cross-links footer -->
+<div style="text-align: center; padding: 20px 0 10px; font-size: 12px; color: var(--text-color); opacity: 0.7; border-top: 1px solid var(--border-color); margin-top: 20px;">
+  Mockup Pages:
+  <a href="oot-hud-mockup.html">Main HUD</a> &middot;
+  <a href="oot-hud-mockup-crcr-summary.html">CRCR Summary</a> &middot;
+  <a href="oot-hud-mockup-crcr-backend.html">Per-Repo (PR)</a> &middot;
+  <a href="oot-hud-mockup-crcr-nightly.html">Nightly</a> &middot;
+  <a href="oot-hud-mockup-crcr-periodic.html">Periodic</a> &middot;
+  <strong>PR Workflows</strong> &middot;
+  <a href="oot-hud-mockup-pr.html">PR View (Legacy)</a>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyTorch CI HUD — PR View (Mockup)</title>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   CSS Variables — verbatim from torchci/styles/globals.css
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+  --background-color: #ffffff;
+  --text-color: #212529;
+  --link-color: #0064cf;
+  --navbar-bg: linear-gradient(326deg, rgba(255,246,246,0.5), rgba(255,247,236,0.5));
+  --navbar-shadow: 0 -4px 20px 0px #c2c2c2;
+  --dropdown-bg: white;
+  --code-bg: aliceblue;
+  --icon-color: black;
+  --dropdown-shadow: 0 -4px 20px 0px #c2c2c2;
+  --button-color: #212529;
+  --button-bg: transparent;
+  --border-color: #e1e1e1;
+  --table-border-color: #e1e1e1;
+  --forced-merge-bg: lightyellow;
+  --forced-merge-failure-bg: #ffe0b3;
+  --autoreverted-bg: #e8e8e8;
+  --selected-row-bg: lightblue;
+  --highlight-bg: #ffa;
+  --commit-message-bg: whitesmoke;
+  --button-hover-bg: lightgrey;
+  --table-row-odd-bg: #f5f5f5;
+  --table-row-even-bg: rgba(125,125,125,0.1);
+  --workflow-box-none-bg: lightgray;
+  --workflow-box-fail-bg: mistyrose;
+  --workflow-box-pending-bg: azure;
+  --workflow-box-success-bg: #efffef;
+  --color-success: #4caf50;
+  --color-failure: #f44336;
+  --color-grey: #9e9e9e;
+  --color-light-grey: #bdbdbd;
+  --color-warning: #ff9800;
+  --color-pending: #ffc107;
+  --color-flaky: #8bc34a;
+  --color-classified: lightpink;
+  --tooltip-bg: #e0e0e0;
+  --tooltip-pinned-bg: #add8e6;
+  --tooltip-text: #212529;
+  --sev-banner-bg: #ffe1e1;
+  --warning-button-bg: #ffc107;
+  --info-button-bg: #17a2b8;
+  --info-button-text: white;
+}
+.dark-mode {
+  --background-color: #1e1e1e;
+  --text-color: #e0e0e0;
+  --link-color: #4a90e2;
+  --navbar-bg: linear-gradient(326deg, rgba(42,42,42,0.8), rgba(45,45,45,0.8));
+  --navbar-shadow: 0 -4px 20px 0px rgba(0,0,0,0.4);
+  --dropdown-bg: #2a2a2a;
+  --code-bg: #2a2a2a;
+  --icon-color: #e0e0e0;
+  --dropdown-shadow: 0 -4px 20px 0px rgba(0,0,0,0.3);
+  --button-color: #e0e0e0;
+  --button-bg: transparent;
+  --border-color: #3a3a3a;
+  --table-border-color: rgba(255,255,255,0.3);
+  --table-row-odd-bg: #2a2a2a;
+  --table-row-even-bg: rgba(125,125,125,0.1);
+  --workflow-box-none-bg: #383838;
+  --workflow-box-fail-bg: #4b2c2c;
+  --workflow-box-pending-bg: #0c232d;
+  --workflow-box-success-bg: #0d3010;
+  --tooltip-bg: #3a3a3a;
+  --tooltip-pinned-bg: #1e4555;
+  --tooltip-text: #e0e0e0;
+  --sev-banner-bg: #4b2c2c;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   Base — from globals.css
+   ═══════════════════════════════════════════════════════════════════════ */
+html {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
+}
+h1 { margin: 0; }
+body {
+  margin: 0; padding: 5px;
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+a { text-decoration: none; color: var(--link-color); }
+* { box-sizing: border-box; }
+pre, code { background-color: var(--code-bg); }
+table a, td a { color: var(--link-color); }
+button {
+  cursor: pointer; display: inline-block; font-weight: 400;
+  color: var(--button-color); text-align: center; vertical-align: middle;
+  user-select: none; border: 1px solid transparent; border-radius: 0.25rem;
+  background-color: var(--button-bg);
+}
+input, select {
+  background-color: var(--dropdown-bg); color: var(--text-color);
+  border: 1px solid var(--border-color); border-radius: 0.25rem;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+select option { background-color: var(--dropdown-bg); color: var(--text-color); }
+table { border-collapse: collapse; border-color: var(--border-color); color: var(--text-color); background-color: var(--dropdown-bg); }
+th, td { border-color: var(--border-color); padding: 1px 3px; }
+hr { border-color: var(--border-color); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   NavBar — from NavBar.module.css
+   ═══════════════════════════════════════════════════════════════════════ */
+.navbar {
+  display: flex; padding: 0 clamp(0.5rem, 1vw, 1rem);
+  background: var(--navbar-bg); box-shadow: var(--navbar-shadow);
+  width: 100%; min-height: 60px; align-items: center;
+  position: relative; z-index: 1300;
+  backdrop-filter: blur(1px); -webkit-backdrop-filter: blur(1px);
+  flex-wrap: wrap; gap: clamp(0.5rem, 2vw, 1.5rem);
+  font-size: clamp(14px, 1vw, 16px);
+}
+.navbar li {
+  padding: clamp(0.5rem, 0.8vw, 0.7rem) clamp(0.6rem, 1vw, 0.8rem);
+  position: relative; display: flex; align-items: center;
+}
+.navbar ul { list-style: none; margin: 0; padding: 0; }
+.navbarlinkslist { display: flex; align-items: center; flex-wrap: wrap; margin: 0; padding: 0; height: 100%; }
+.homeLink { font-weight: bold; padding-right: 10px; }
+.nav-right { margin-left: auto; display: flex; align-items: center; }
+.dropdown-trigger { position: relative; cursor: pointer; }
+.dropdown-menu {
+  position: absolute; top: 100%; left: 0; box-shadow: var(--dropdown-shadow);
+  z-index: 9999; min-width: 12rem; padding: 0.5rem 0;
+  background-color: var(--dropdown-bg); display: none; border-radius: 4px;
+}
+.dropdown-trigger:hover .dropdown-menu { display: block; }
+.dropdown-menu a { display: block; padding: 0.35rem 0.8rem; font-size: 13px; color: var(--text-color); white-space: nowrap; }
+.dropdown-menu a:hover { background: rgba(0,0,0,0.05); }
+.dark-mode .dropdown-menu a:hover { background: rgba(255,255,255,0.05); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HUD Table — from hud.module.css
+   ═══════════════════════════════════════════════════════════════════════ */
+.hudTable { table-layout: fixed; border-collapse: collapse; width: max-content; line-height: 1; }
+.colTime { width: 14ch; }
+.colSha { width: 8ch; }
+.colCommit { width: 40ch; }
+.colPr { width: 8ch; }
+.colAuthor { width: 12ch; }
+.colJob { width: 2ch; min-width: 14px; }
+.jobHeader { font-family: sans-serif; height: 150px; white-space: nowrap; padding-right: 4px; }
+.jobHeaderName { transform: translate(5px, 60px) rotate(315deg); width: 12px; font-weight: 400; font-size: 0.8em; }
+.jobHeaderNameBold { transform: translate(5px, 60px) rotate(315deg); width: 12px; font-weight: bold; font-size: 0.8em; }
+.regularHeader { vertical-align: bottom; font-weight: 600; font-size: 0.85em; padding: 4px 6px; }
+.jobMetadata a { text-decoration: none; color: var(--link-color); }
+.jobMetadataTruncated {
+  vertical-align: top; width: auto; height: 20px; min-width: 0; max-width: 37ch;
+  display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-radius: 2px; padding: 0 2px;
+}
+.jobMetadataTruncatedAuthor {
+  vertical-align: top; width: auto; height: 20px; min-width: 0; max-width: 12ch;
+  display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  border-radius: 2px; padding: 0 2px;
+}
+td.jobMetadata { vertical-align: top; padding: 2px 4px; white-space: nowrap; font-size: 0.85em; }
+td.jobCell { text-align: center; padding: 2px; }
+.center { text-align: center; }
+.highlight { background-color: var(--highlight-bg); }
+.forcedMerge { background-color: var(--forced-merge-bg); }
+.forcedMergeWithFailure { background-color: var(--forced-merge-failure-bg); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   JobConclusion — from JobConclusion.module.css + getConclusionChar
+   ═══════════════════════════════════════════════════════════════════════ */
+.conclusion { font-family: monospace; font-size: 1rem; font-weight: bold; display: inline-block; width: 14px; text-align: center; }
+.c-success { color: var(--color-success); }
+.c-failure { color: var(--color-failure); }
+.c-pending { color: var(--color-pending); }
+.c-cancelled { color: var(--color-failure); }
+.c-skipped { color: var(--color-grey); }
+.c-flaky { color: var(--color-flaky); }
+.c-warning { color: var(--color-warning); }
+.c-none { color: var(--color-light-grey); }
+.c-queued { color: var(--color-light-grey); }
+.c-classified { color: var(--color-classified); }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   HUD Controls Row
+   ═══════════════════════════════════════════════════════════════════════ */
+.hudControlsRow { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; width: 100%; }
+.settingsButton {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: none; border: 1px solid var(--border-color); border-radius: 3px;
+  padding: 0.25rem 0.5rem; cursor: pointer; color: var(--text-color);
+}
+.branchFormInput {
+  font-weight: bold; font-family: monospace; background-color: var(--code-bg);
+  font-size: 1em; border: 0px; padding: 0px; padding-left: 4px; color: var(--text-color);
+}
+
+/* Tooltip */
+.has-tooltip { position: relative; }
+.has-tooltip .tt {
+  display: none; position: absolute; z-index: 1000; bottom: calc(100% + 6px);
+  left: 50%; transform: translateX(-50%); background: var(--tooltip-bg);
+  color: var(--tooltip-text); padding: 6px 10px; border-radius: 4px;
+  font-size: 12px; white-space: pre-line; pointer-events: none;
+  min-width: 200px; max-width: 350px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  font-family: -apple-system, sans-serif; font-weight: normal;
+}
+.has-tooltip:hover .tt { display: block; }
+
+/* ═══════════════════════════════════════════════════════════════════════
+   CRCR / MUI-like styles
+   ═══════════════════════════════════════════════════════════════════════ */
+.oot-page { padding: 24px; max-width: 1600px; margin: 0 auto; }
+.oot-page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.oot-page-header h2 { font-size: 2.125rem; font-weight: 400; letter-spacing: 0.00735em; margin: 0; }
+.subtitle { color: #888; font-size: 0.875rem; margin-bottom: 16px; }
+
+.mui-select-wrapper { position: relative; min-width: 140px; }
+.mui-select-wrapper label {
+  position: absolute; top: -8px; left: 12px; font-size: 11px;
+  background: var(--dropdown-bg); padding: 0 4px; color: #888;
+}
+.mui-select-wrapper select { width: 100%; padding: 8px 12px; font-size: 14px; }
+
+.chip {
+  display: inline-block; padding: 3px 10px; border-radius: 16px;
+  font-size: 0.8125rem; font-weight: 500; line-height: 1.4; text-align: center; cursor: default;
+}
+.chip-success { background: #e8f5e9; color: #2e7d32; }
+.chip-error   { background: #ffebee; color: #c62828; }
+.chip-warning { background: #fff3e0; color: #e65100; }
+.chip-info    { background: #e3f2fd; color: #1565c0; }
+.chip-default { background: #f5f5f5; color: #616161; }
+.dark-mode .chip-success { background: #1b5e20; color: #a5d6a7; }
+.dark-mode .chip-error   { background: #b71c1c; color: #ef9a9a; }
+.dark-mode .chip-warning { background: #e65100; color: #ffcc80; }
+.dark-mode .chip-info    { background: #0d47a1; color: #90caf9; }
+.dark-mode .chip-default { background: #424242; color: #bdbdbd; }
+
+.chip-outlined { background: transparent; border: 1px solid; }
+.chip-outlined.level-l1 { border-color: #9e9e9e; color: #9e9e9e; }
+.chip-outlined.level-l2 { border-color: #0288d1; color: #0288d1; }
+.chip-outlined.level-l3 { border-color: #ed6c02; color: #ed6c02; }
+.chip-outlined.level-l4 { border-color: #7b1fa2; color: #7b1fa2; }
+
+.paper {
+  border-radius: 4px; overflow: hidden;
+  box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.2), 0px 2px 2px 0px rgba(0,0,0,0.14), 0px 1px 5px 0px rgba(0,0,0,0.12);
+  background: var(--dropdown-bg);
+}
+.dark-mode .paper { box-shadow: 0px 3px 1px -2px rgba(0,0,0,0.5), 0px 2px 2px 0px rgba(0,0,0,0.4), 0px 1px 5px 0px rgba(0,0,0,0.3); }
+
+.oot-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.oot-table th { text-align: left; padding: 8px 16px; font-weight: 600; border-bottom: 2px solid var(--border-color); font-size: 0.875rem; color: var(--text-color); }
+.oot-table th.r, .oot-table td.r { text-align: right; }
+.oot-table th.c, .oot-table td.c { text-align: center; }
+.oot-table td { padding: 6px 16px; border-bottom: 1px solid var(--border-color); }
+.oot-table tbody tr:hover { background: rgba(0,0,0,0.04); }
+.dark-mode .oot-table tbody tr:hover { background: rgba(255,255,255,0.04); }
+
+.accordion { border: 1px solid var(--border-color); border-radius: 4px; margin-top: 16px; overflow: hidden; }
+.accordion-header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  cursor: pointer; background: var(--dropdown-bg); user-select: none; font-size: 14px;
+}
+.accordion-header:hover { background: rgba(0,0,0,0.02); }
+.dark-mode .accordion-header:hover { background: rgba(255,255,255,0.02); }
+.accordion-header .expand-icon { transition: transform 0.2s; font-size: 18px; color: #888; }
+.accordion-header.open .expand-icon { transform: rotate(180deg); }
+.accordion-body { padding: 8px 16px 16px; }
+
+.stack-row { display: flex; align-items: center; gap: 8px; }
+.mono { font-family: "SF Mono", "Fira Code", Consolas, monospace; font-size: 0.8125rem; }
+
+/* Stat cards */
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--dropdown-bg); border: 1px solid var(--border-color);
+  border-radius: 6px; padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+.stat-card .stat-label { font-size: 0.6875rem; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.04em; }
+.stat-card .stat-value { font-size: 1.75rem; font-weight: 700; line-height: 1.3; }
+.stat-card .stat-sub { font-size: 0.6875rem; color: #888; }
+.stat-value.good { color: #2e7d32; }
+.stat-value.warn { color: #ed6c02; }
+.stat-value.bad { color: #d32f2f; }
+
+/* Section divider */
+.section-divider {
+  display: flex; align-items: center; gap: 12px; margin: 4px 0 16px 0;
+}
+.section-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+.section-divider h3 {
+  font-size: 0.75rem; font-weight: 600; color: #888;
+  text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; margin: 0;
+}
+
+/* Status dot */
+.status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; vertical-align: middle; }
+.status-dot.active { background: #2e7d32; box-shadow: 0 0 0 2px #e8f5e9; }
+.status-dot.stale { background: #9e9e9e; box-shadow: 0 0 0 2px #eee; }
+
+/* Stat pills — per-repo dashboard */
+.stat-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 16px; border: 1px solid var(--border-color); border-radius: 20px;
+  background: var(--dropdown-bg);
+}
+.stat-pill-label { font-size: 0.6875rem; font-weight: 500; color: #888; }
+.stat-pill-value { font-size: 0.875rem; font-weight: 600; }
+.stat-pill-value.good { color: #2e7d32; }
+.stat-pill-value.warn { color: #ed6c02; }
+.stat-pill-value.bad { color: #d32f2f; }
+
+/* CRCR expandable group columns on HUD homepage */
+.crcr-sub { display: none; }
+.crcr-expanded .crcr-sub { display: table-cell; }
+.crcr-group-header { cursor: pointer; }
+.crcr-group-header .jobHeaderNameBold { color: #0288d1; }
+
+/* ═══════════════════════════════════════════════════════════════════════ */
+.view { display: none; }
+.view.active { display: block; }
+.theme-picker {
+  background: none; border: 1px solid var(--border-color); border-radius: 4px;
+  padding: 4px 10px; cursor: pointer; color: var(--text-color); font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div>
+    <ul class="navbarlinkslist">
+      <li class="homeLink"><a href="oot-hud-mockup.html">PyTorch CI HUD</a></li>
+      <li><a href="oot-hud-mockup.html">PyTorch</a></li>
+      <li><a href="#">ExecuTorch</a></li>
+      <li><a href="#">TorchVision</a></li>
+      <li><a href="#">TorchAudio</a></li>
+      <li><a href="#">Helion</a></li>
+      <li><a href="oot-hud-mockup-crcr-summary.html">CRCR</a></li>
+    </ul>
+  </div>
+  <div class="nav-right">
+    <ul class="navbarlinkslist">
+      <li><a href="https://github.com/pytorch/pytorch/wiki/Using-hud.pytorch.org">Help</a></li>
+      <li><a href="#">Requests</a></li>
+      <li><a href="#">KPIs</a></li>
+      <li class="dropdown-trigger">
+        <span>Benchmarks &#9662;</span>
+        <div class="dropdown-menu"><a href="#">TorchBench</a><a href="#">Inductor Perf</a></div>
+      </li>
+      <li class="dropdown-trigger">
+        <span>Metrics &#9662;</span>
+        <div class="dropdown-menu">
+          <a href="#">Metrics</a>
+          <a href="#">Flambeau (PyTorch CI Agent)</a>
+          <a href="#">vLLM CI metrics</a>
+          <a href="#">Autorevert Metrics</a>
+          <a href="#">Claude Billing</a>
+          <a href="#">CRCR Metrics</a>
+        </div>
+      </li>
+      <li class="dropdown-trigger">
+        <span>Dev Infra &#9662;</span>
+        <div class="dropdown-menu">
+          <a href="#">TTS</a><a href="#">Queue Time Analysis</a>
+          <a href="#">Nightly Dashboard</a><a href="#">Disabled Tests</a>
+          <a href="#">Cost Analysis</a><a href="#">PyTorch Runners</a>
+          <a href="#">Test File Reports</a><a href="#">Mac Test Stats</a>
+        </div>
+      </li>
+      <li>
+        <a href="https://github.com/pytorch/test-infra/tree/main/torchci" style="color: var(--icon-color); display: flex; align-items: center;">
+          <svg viewBox="0 0 1024 1024" width="18" height="18" fill="currentColor"><path d="M511.6 76.3C264.3 76.2 64 276.4 64 523.5 64 718.9 189.3 885 363.8 946c23.5 5.9 19.9-10.8 19.9-22.2v-77.5c-135.7 15.9-141.2-73.9-150.3-88.9C215 726 171.5 718 184.5 703c30.9-15.9 62.4 4 98.9 57.9 26.4 39.1 77.9 32.5 104 26 5.7-23.5 17.9-44.5 34.7-60.8-140.6-25.2-199.2-111-199.2-213 0-49.5 16.3-95 48.3-131.7-20.4-60.5 1.9-112.3 4.9-120 58.1-5.2 118.5 41.6 123.2 45.3 33-8.9 70.7-13.6 112.9-13.6 42.4 0 80.2 4.9 113.5 13.9 11.3-8.6 67.3-48.8 121.3-43.9 2.9 7.7 24.7 58.3 5.5 118 32.4 36.8 48.9 82.7 48.9 132.3 0 102.2-59 188.1-200 212.9a127.5 127.5 0 0 1 38.1 91v112.5c.8 9 0 17.9 15 17.9 177.1-59.7 304.6-227 304.6-424.1 0-247.2-200.4-447.3-447.5-447.3z"/></svg>
+        </a>
+      </li>
+      <li><button class="theme-picker" onclick="toggleTheme()" title="Toggle dark mode">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18V4c4.41 0 8 3.59 8 8s-3.59 8-8 8z"/></svg>
+      </button></li>
+    </ul>
+  </div>
+</nav>
+
+<div id="view-pr" >
+  <div style="padding: 12px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+      <h1 style="font-size: 1.5rem; font-weight: 400;">
+        Improve conv2d backward pass performance
+        <code style="font-size: 0.85em;"><a href="#">#183512</a></code>
+      </h1>
+      <span class="chip chip-info" style="cursor: pointer;">Dr. CI</span>
+    </div>
+
+    <div style="margin: 12px 0 20px;">
+      Commit:
+      <select style="padding: 4px 8px; font-size: 13px;">
+        <option>Improve conv2d backward pass performance (a1b2c3)</option>
+        <option>Fix edge case in transposed conv (e4f5a6)</option>
+      </select>
+    </div>
+
+    <div style="margin-bottom: 8px;">
+      <h3 style="font-weight: 500; font-size: 1rem; margin-bottom: 8px;">Commit CI Status</h3>
+      <div style="display: flex; gap: 4px; flex-wrap: wrap; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px;">
+        <span class="conclusion c-success has-tooltip" style="cursor:pointer;">O<div class="tt">Lint &mdash; success (1m 12s)</div></span>
+        <span class="conclusion c-success has-tooltip" style="cursor:pointer;">O<div class="tt">pull / linux-jammy-py3.8-gcc11 / build &mdash; success (8m 32s)</div></span>
+        <span class="conclusion c-success has-tooltip" style="cursor:pointer;">O<div class="tt">pull / linux-jammy-py3.8-gcc11 / test &mdash; success (22m 14s)</div></span>
+        <span class="conclusion c-success has-tooltip" style="cursor:pointer;">O<div class="tt">pull / linux-focal-cuda12.1 / build &mdash; success (12m 3s)</div></span>
+        <span class="conclusion c-failure has-tooltip" style="cursor:pointer;">X<div class="tt">pull / linux-focal-cuda12.1 / test &mdash; failure
+FAIL test_sparse (SparseTestCUDA)
+Duration: 45m 12s</div></span>
+        <span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-pending">?</span><span class="conclusion c-pending">?</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-pending">?</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-success">O</span><span class="conclusion c-none">~</span>
+      </div>
+    </div>
+
+    <div style="margin: 12px 0; padding: 8px 14px; background: rgba(2,136,209,0.08); border: 1px solid rgba(2,136,209,0.3); border-radius: 6px; font-size: 0.85rem;">
+      &#9432; This is the old dropdown design. <a href="oot-hud-mockup-pr-workflows.html" style="font-weight: 600;">View the new workflow-column design &rarr;</a>
+    </div>
+
+    <!-- CRCR Section: OotPrSection — from components/oot/OotPrSection.tsx -->
+    <div class="accordion" style="margin-top: 14px;">
+      <div class="accordion-header open" onclick="toggleAccordion(this)">
+        <span class="expand-icon">&#9662;</span>
+        <div class="stack-row">
+          <strong>Cross-Repository CI (L3/L4)</strong>
+          <span style="font-size: 0.875rem; color: #888;">(4/5 passed, 1 running)</span>
+        </div>
+      </div>
+      <div class="accordion-body">
+        <table class="oot-table">
+          <thead>
+            <tr><th>Backend</th><th>Job</th><th class="c">Status</th><th class="r">Duration</th><th>Links</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>intel/intel-extension-for-pytorch <span class="chip chip-outlined level-l3" style="font-size: 0.65rem; padding: 1px 6px;">L3</span></td><td>build-and-test</td>
+              <td class="c"><span class="chip chip-success">success</span></td>
+              <td class="r">27s</td><td><a href="#" style="margin-right: 8px;">Run</a> <a href="#">Artifacts</a></td>
+            </tr>
+            <tr>
+              <td>intel/intel-extension-for-pytorch <span class="chip chip-outlined level-l3" style="font-size: 0.65rem; padding: 1px 6px;">L3</span></td><td>test-xpu-ops</td>
+              <td class="c"><span class="chip chip-error">failure</span></td>
+              <td class="r">31s</td><td><a href="#" style="margin-right: 8px;">Run</a> <a href="#">Artifacts</a></td>
+            </tr>
+            <tr>
+              <td>pytorch-labs/ascend-pytorch <span class="chip chip-outlined level-l3" style="font-size: 0.65rem; padding: 1px 6px;">L3</span></td><td>build-and-test</td>
+              <td class="c"><span class="chip chip-success">success</span></td>
+              <td class="r">35s</td><td><a href="#" style="margin-right: 8px;">Run</a> <a href="#">Artifacts</a></td>
+            </tr>
+            <tr>
+              <td>pytorch-labs/ascend-pytorch <span class="chip chip-outlined level-l3" style="font-size: 0.65rem; padding: 1px 6px;">L3</span></td><td>test-npu</td>
+              <td class="c"><span class="chip chip-info">running</span></td>
+              <td class="r">&ndash;</td><td><a href="#">Run</a></td>
+            </tr>
+            <tr>
+              <td>pytorch-labs/cambricon-pytorch <span class="chip chip-outlined level-l4" style="font-size: 0.65rem; padding: 1px 6px;">L4</span></td><td>build-and-test</td>
+              <td class="c"><span class="chip chip-success">success</span></td>
+              <td class="r">32s</td><td><a href="#" style="margin-right: 8px;">Run</a> <a href="#">Artifacts</a></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     VIEW 3: CRCR SUMMARY — /crcr (from pages/crcr/index.tsx)
+     ═══════════════════════════════════════════════════════════════════════ -->
+
+<script>
+function toggleTheme() { document.body.classList.toggle("dark-mode"); }
+function toggleAccordion(header) {
+  header.classList.toggle('open');
+  var body = header.nextElementSibling;
+  body.style.display = header.classList.contains('open') ? 'block' : 'none';
+}
+</script>
+
+<!-- Mockup cross-links footer -->
+<div style="text-align: center; padding: 20px 0 10px; font-size: 12px; color: var(--text-color); opacity: 0.7; border-top: 1px solid var(--border-color); margin-top: 20px;">
+  Mockup Pages:
+  <a href="oot-hud-mockup.html">Main HUD</a> &middot;
+  <a href="oot-hud-mockup-crcr-summary.html">CRCR Summary</a> &middot;
+  <a href="oot-hud-mockup-crcr-backend.html">Per-Repo (PR)</a> &middot;
+  <a href="oot-hud-mockup-crcr-nightly.html">Nightly</a> &middot;
+  <a href="oot-hud-mockup-crcr-periodic.html">Periodic</a> &middot;
+  <a href="oot-hud-mockup-pr-workflows.html">PR Workflows</a> &middot;
+  <strong>PR View (Legacy)</strong>
+</div>
+
+</body>
+</html>
