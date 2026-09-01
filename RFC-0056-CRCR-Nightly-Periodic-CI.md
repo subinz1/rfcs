@@ -75,11 +75,9 @@ on:
 
 The `client_payload` always contains `event_type`, `delivery_id`, and the upstream webhook payload. Downstream workflows branch on `event_type` to extract PR number, SHA, ref, etc.
 
-## Proposed Design: Authenticated Self-Report
+## Design: Authenticated Self-Report
 
-*Proposed by @atalman in [PR #98 comment](https://github.com/pytorch/rfcs/pull/98#issuecomment-4962790260).*
-
-Instead of a central scheduler dispatching *to* downstream repos, each downstream repo drives its own schedule and reports results back. The relay becomes a **validating ingest endpoint** for nightly/periodic events. The full state machine is replaced with a **single-callback model**:
+Each downstream repo drives its own nightly schedule and reports results back to the relay. The relay acts as a **validating ingest endpoint** for nightly/periodic events. The full state machine is replaced with a **single-callback model**:
 
 | | PR / push (existing) | Nightly / periodic (new) |
 |---|---|---|
