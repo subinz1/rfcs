@@ -273,16 +273,6 @@ Only GitHub Actions and Buildkite are implemented. GitLab and CircleCI can be ad
 
 Tracking issue: [pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326)
 
-### File Changes
-
-| File | Change |
-|------|--------|
-| `callback/lambda_function.py` | New code path: detect `event_type ∈ {nightly, periodic}`, skip state machine entirely (no Redis), validate OIDC + SHA, single upsert to DynamoDB |
-| `callback/sha_validator.py` | New module: `GET /repos/pytorch/pytorch/commits/{sha}` with TTL cache to avoid repeated GitHub API calls |
-| `allowlist.yml` | Add `nightly: true/false` per-repo flag to control which repos can self-report nightly results |
-| Downstream workflow (per repo) | New `schedule: cron` workflow: fetch top-of-tree SHA from `nightly` branch (or `main` for periodic), run CI, call callback with `event_type: nightly` and `dispatch_id: <SHA>` |
-| HUD (`torchci/`) | Filter/view for `event_type != pull_request` on `/crcr/nightly` or dedicated nightly page |
-
 ## Previously Considered Options
 
 Two alternative approaches were evaluated. The authenticated self-report model (described above) was selected and shipped.
