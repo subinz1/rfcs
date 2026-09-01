@@ -269,13 +269,7 @@ buildkite:
 
 Only GitHub Actions and Buildkite are implemented. GitLab and CircleCI can be added by extending the `_ISSUERS` registry and `ci_providers.yml`.
 
-### Implementation (shipped)
-
-| Component | Change | PR |
-|-----------|--------|-----|
-| `utils/jwt_helper.py` | Multi-issuer dispatch + Buildkite UUID mapping | [#8453](https://github.com/pytorch/test-infra/pull/8453) |
-| `config/ci_providers.yml` | Externalized provider config with `required_claims` | [#8468](https://github.com/pytorch/test-infra/pull/8468) |
-| Tests | Buildkite verify, unknown pipeline, unknown issuer, branch pinning | included in #8453 |
+### Implementation
 
 Tracking issue: [pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326)
 
