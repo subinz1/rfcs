@@ -5,25 +5,29 @@
 * @jewelkm89
 * @subinz1
 
-**Status:** Implemented — all phases shipped and live on HUD
+**Status:** Implemented — scheduled self-reporting, event-scoped backend enrollment, and separate PR/nightly HUD views are live
 
 **Date:** June 2026
 
+**Last updated:** September 2026
+
 ## Summary
 
-Extend the Cross-Repository CI Relay (CRCR) to support nightly and periodic CI schedules for downstream repositories. Currently, CRCR only dispatches on `pull_request` and `push` events from `pytorch/pytorch`. This RFC proposes adding an authenticated self-report model so downstream backends can independently schedule nightly/periodic CI and report results to the PyTorch HUD.
+CRCR supports nightly and periodic CI schedules for downstream repositories through an authenticated self-report model. Downstream backends independently schedule their jobs, validate a PyTorch commit SHA, and report the final result to the PyTorch HUD without requiring an upstream dispatch.
+
+The relay configuration also records which event domains each backend participates in. A backend can participate in the upstream PR/push dispatch flow, the scheduled nightly self-report flow, or both. This keeps nightly-only backends out of Pull Requests metrics and prevents them from receiving irrelevant upstream dispatches, while preserving the behavior of existing allowlist entries.
 
 ## Motivation
 
-CRCR currently dispatches downstream CI on `pull_request` and `push` events from `pytorch/pytorch`. The webhook Lambda receives these GitHub webhook events, generates a `delivery_id`, sends `repository_dispatch` to all allowlisted downstream repos, and sets `DISPATCHED` in Redis. Downstream repos run their CI, then report results back via the callback Lambda, which validates the state machine (`DISPATCHED → IN_PROGRESS → COMPLETED`) and forwards metrics to HUD.
+Before the self-report path was introduced, CRCR only dispatched downstream CI from `pull_request` and `push` events in `pytorch/pytorch`. The webhook Lambda generated a `delivery_id`, sent `repository_dispatch` to every eligible downstream repo, and set `DISPATCHED` in Redis. Downstream repos then reported results through the callback Lambda, which validated the state machine (`DISPATCHED → IN_PROGRESS → COMPLETED`) before forwarding metrics to HUD.
 
-Nightly and periodic runs have no upstream trigger. They are cron-scheduled jobs (e.g., nightly builds against `main` HEAD, weekly compatibility tests against release branches). This creates two blockers:
+Nightly and periodic runs have no upstream trigger. They are cron-scheduled jobs (e.g., nightly builds against `main` HEAD, weekly compatibility tests against release branches). That design created two blockers:
 
 1. **No dispatch.** Without an upstream webhook event, there is no `repository_dispatch` to downstream repos. Downstream nightly jobs would have to self-trigger via their own `schedule: cron`.
 
-2. **No callback path.** The state machine rejects callbacks without a prior `DISPATCHED` record (HTTP 400: "no prior dispatch"). Even if a downstream repo runs a nightly job and tries to report results, the callback is rejected.
+2. **No callback path.** The state machine rejected callbacks without a prior `DISPATCHED` record (HTTP 400: "no prior dispatch"). Even if a downstream repo ran a nightly job and tried to report results, the callback was rejected.
 
-**Impact:** Downstream backends cannot report nightly/periodic CI results to HUD. This is a gap for L3/L4 backends that need to show nightly compatibility on `hud.pytorch.org/crcr`.
+**Outcome:** The authenticated self-report path resolves both blockers. Downstream backends can schedule and publish nightly/periodic results to HUD, and event-scoped enrollment keeps scheduled-only integrations separate from the PR/push relay path.
 
 ## Current Architecture
 
@@ -36,7 +40,7 @@ The webhook Lambda accepts two GitHub event types (see `_SUPPORTED_EVENTS` in `w
 | `pull_request` | GitHub webhook | PR opened, reopened, synchronize, closed |
 | `push` | GitHub webhook | Push to any branch in `pytorch/pytorch` |
 
-Both follow the same dispatch path:
+Both webhooks use the PR/push dispatch path. They are sent only to backends enrolled in the logical `pull_request` event domain; this single logical domain intentionally covers both upstream GitHub webhook types.
 
 ```
 GitHub webhook (pull_request or push)
@@ -46,7 +50,7 @@ Webhook Lambda:
     2. Check event type ∈ {pull_request, push}
     3. Check repo == upstream_repo (pytorch/pytorch)
     4. Generate delivery_id from X-GitHub-Delivery header
-    5. For each allowlisted downstream repo:
+    5. For each downstream repo enrolled for `pull_request`:
        - Mint GitHub App installation token
        - Send repository_dispatch(event_type, client_payload)
        - Set DISPATCHED state in Redis
@@ -74,6 +78,32 @@ on:
 ```
 
 The `client_payload` always contains `event_type`, `delivery_id`, and the upstream webhook payload. Downstream workflows branch on `event_type` to extract PR number, SHA, ref, etc.
+
+### Event-Scoped Backend Enrollment
+
+The CRCR allowlist supports an optional `events` field for each backend. It makes a backend's intended participation explicit without changing the behavior of pre-existing entries.
+
+```yaml
+L2:
+  # No events field preserves the legacy behavior: both domains.
+  - org/pr-and-nightly
+
+  # This backend self-schedules and self-reports scheduled CI only.
+  - org/nightly-only:
+      events:
+        - nightly
+```
+
+Entries written as a legacy repository string, or as a mapping without `events`, default to both `pull_request` and `nightly`. This preserves compatibility while allowing a backend to opt into one domain deliberately.
+
+| Allowlist event | Relay and HUD behavior |
+|---|---|
+| `pull_request` | Receives `repository_dispatch` for upstream `pull_request` and `push` webhooks. It is eligible for L3 PR check-run handling and appears in the Pull Requests dashboard and its aggregate metrics. |
+| `nightly` | Runs on the downstream repository's own schedule and reports its completed result through the authenticated callback path. It appears in the Nightly dashboard and is excluded from Pull Requests tables, counts, and PR/push dispatch targets. |
+
+`periodic` remains a scheduled callback event type and follows the same self-report path as `nightly`; the current enrollment vocabulary has the two domains above. The callback path authenticates an allowlisted L2-or-higher caller with OIDC, while event enrollment determines relay dispatch eligibility and HUD presentation.
+
+This model was added in [pytorch/test-infra#8854](https://github.com/pytorch/test-infra/pull/8854) and enforced in the relay and dashboard in [pytorch/test-infra#8862](https://github.com/pytorch/test-infra/pull/8862).
 
 ## Design: Authenticated Self-Report
 
@@ -116,7 +146,7 @@ Single callback to the relay (no in_progress step):
     - conclusion = "success" | "failure" | "timed_out"
     ↓
 Relay validates:
-    1. OIDC token → repo is on allowlist with nightly enabled
+    1. OIDC token → authenticated allowlisted caller with L2-or-higher callback access
     2. GET /repos/pytorch/pytorch/commits/{sha} → SHA exists
     ↓
 Direct upsert to DynamoDB (no Redis, no state machine)
@@ -177,21 +207,22 @@ jobs:
 | 5 | Coordination-free correlation | `dispatch_id` is the nightly branch HEAD SHA — meaningful, idempotent, and lets HUD map runs directly to `github.com/pytorch/pytorch/commit/<sha>`. |
 | 6 | Leverages existing nightly branch | The `nightly` branch already exists and is updated daily by `trigger_nightly_core.yml`. No new infrastructure needed to determine the SHA. |
 
-### Implementation Effort
+### Delivered Implementation
 
-| Component | Work | Effort |
-|-----------|------|--------|
-| Callback Lambda upsert path | New code path: skip state machine, validate OIDC + SHA, upsert | ~2 days |
-| SHA validation + caching | GitHub API integration + cache layer | ~1 day |
-| Downstream cron workflow | New workflow in each downstream: fetch SHA, run CI, call callback | ~1 day per repo |
-| HUD view | Filter/view for non-PR results grouped by SHA | ~1 day |
-| Testing | End-to-end test with `TorchedHat/pytorch-redhat-ci` | ~1 day |
-| **Total** | | **~5-6 days** |
+The shipped work comprises:
+
+| Component | Delivered behavior |
+|-----------|--------------------|
+| Callback ingest | Scheduled callbacks bypass the PR/push state machine, authenticate with OIDC, validate the reported SHA, and upsert the completed result. |
+| Downstream workflow | A downstream-owned cron fetches a target PyTorch SHA, runs its CI, and sends one final callback. |
+| Event enrollment | Allowlist entries can declare `pull_request`, `nightly`, or use the backward-compatible default of both. |
+| Relay and L3 checks | PR/push dispatch and L3 PR check-run handling consider only `pull_request` participants. |
+| HUD | Pull Requests dashboard counts and rows consider only `pull_request` participants; scheduled results remain in the Nightly view. |
 
 ## Metrics
 
 - **Callbacks received per backend per day**: Count of nightly/periodic callback payloads ingested per downstream repo per 24h window. Observable from DynamoDB/ClickHouse without knowledge of downstream schedules.
-- **Time since last callback**: Per-backend staleness indicator — if the relay hasn't received a nightly callback from a registered backend in >36 hours, the health card on HUD marks it as degraded.
+- **Time since last callback**: Per-backend staleness indicator. The relay does not know a downstream repo's expected cron schedule, so this is the available signal for a future degraded-health policy.
 - **HUD coverage**: Number of downstream backends with nightly results visible on `hud.pytorch.org/crcr`.
 - **Time-to-detection**: How quickly a nightly regression in a downstream backend is surfaced on HUD (measured from cron trigger to HUD row appearing).
 
@@ -291,11 +322,11 @@ Two alternative approaches were evaluated. The authenticated self-report model (
 
 ## Resolution
 
-Implemented — all phases shipped and operational.
+Implemented — the self-report path and event-scoped enrollment are operational.
 
 ### Level of Support
 
-Accepted — adopted by CRCR Working Group. Nightly CI is live for `pytorch/crcr-test` and `TorchedHat/pytorch-redhat-ci`. Buildkite OIDC onboarded for `vllm-project/vllm`.
+Accepted — adopted by CRCR Working Group. At this update, `NVIDIA/pytorch-windows-ci`, `TorchedHat/pytorch-redhat-ci`, and `vllm-project/vllm` are configured as L2 nightly-only backends. They can self-report scheduled results without appearing in the Pull Requests dashboard. `vllm-project/vllm` uses the Buildkite OIDC integration.
 
 ### Next Steps
 
@@ -305,4 +336,4 @@ Accepted — adopted by CRCR Working Group. Nightly CI is live for `pytorch/crcr
 
 #### Tracking Issue
 
-[pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326)
+[pytorch/test-infra#8326](https://github.com/pytorch/test-infra/issues/8326) tracks multi-CI-provider authentication. [pytorch/test-infra#8802](https://github.com/pytorch/test-infra/issues/8802) tracks event-scoped backend participation.
