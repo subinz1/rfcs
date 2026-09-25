@@ -1,11 +1,11 @@
-# CRCR Support for Nightly & Periodic CI
+# CRCR Support for Nightly CI
 
 **Authors:**
 * @groenenboomj
 * @jewelkm89
 * @subinz1
 
-**Status:** Implemented — scheduled self-reporting, event-scoped backend enrollment, and separate PR/nightly HUD views are live
+**Status:** Implemented — nightly self-reporting, event-scoped backend enrollment, and separate PR/nightly HUD views are live. Pass-rate aggregation alignment is tracked in [pytorch/test-infra#8897](https://github.com/pytorch/test-infra/issues/8897).
 
 **Date:** June 2026
 
@@ -13,7 +13,7 @@
 
 ## Summary
 
-CRCR supports nightly and periodic CI schedules for downstream repositories through an authenticated self-report model. Downstream backends independently schedule their jobs, validate a PyTorch commit SHA, and report the final result to the PyTorch HUD without requiring an upstream dispatch.
+CRCR supports nightly CI for downstream repositories through an authenticated self-report model. Downstream backends independently schedule their jobs, validate a PyTorch commit SHA, and report the final result to the PyTorch HUD without requiring an upstream dispatch.
 
 The relay configuration also records which event domains each backend participates in. A backend can participate in the upstream PR/push dispatch flow, the scheduled nightly self-report flow, or both. This keeps nightly-only backends out of Pull Requests metrics and prevents them from receiving irrelevant upstream dispatches, while preserving the behavior of existing allowlist entries.
 
@@ -21,13 +21,13 @@ The relay configuration also records which event domains each backend participat
 
 Before the self-report path was introduced, CRCR only dispatched downstream CI from `pull_request` and `push` events in `pytorch/pytorch`. The webhook Lambda generated a `delivery_id`, sent `repository_dispatch` to every eligible downstream repo, and set `DISPATCHED` in Redis. Downstream repos then reported results through the callback Lambda, which validated the state machine (`DISPATCHED → IN_PROGRESS → COMPLETED`) before forwarding metrics to HUD.
 
-Nightly and periodic runs have no upstream trigger. They are cron-scheduled jobs (e.g., nightly builds against `main` HEAD, weekly compatibility tests against release branches). That design created two blockers:
+Nightly runs have no upstream trigger. They are cron-scheduled jobs that test the `pytorch/pytorch` nightly branch. That design created two blockers:
 
 1. **No dispatch.** Without an upstream webhook event, there is no `repository_dispatch` to downstream repos. Downstream nightly jobs would have to self-trigger via their own `schedule: cron`.
 
 2. **No callback path.** The state machine rejected callbacks without a prior `DISPATCHED` record (HTTP 400: "no prior dispatch"). Even if a downstream repo ran a nightly job and tried to report results, the callback was rejected.
 
-**Outcome:** The authenticated self-report path resolves both blockers. Downstream backends can schedule and publish nightly/periodic results to HUD, and event-scoped enrollment keeps scheduled-only integrations separate from the PR/push relay path.
+**Outcome:** The authenticated self-report path resolves both blockers. Downstream backends can schedule and publish nightly results to HUD, and event-scoped enrollment keeps nightly-only integrations separate from the PR/push relay path.
 
 ## Current Architecture
 
@@ -101,15 +101,13 @@ Entries written as a legacy repository string, or as a mapping without `events`,
 | `pull_request` | Receives `repository_dispatch` for upstream `pull_request` and `push` webhooks. It is eligible for L3 PR check-run handling and appears in the Pull Requests dashboard and its aggregate metrics. |
 | `nightly` | Runs on the downstream repository's own schedule and reports its completed result through the authenticated callback path. It appears in the Nightly dashboard and is excluded from Pull Requests tables, counts, and PR/push dispatch targets. |
 
-`periodic` remains a scheduled callback event type and follows the same self-report path as `nightly`; the current enrollment vocabulary has the two domains above. The callback path authenticates an allowlisted L2-or-higher caller with OIDC, while event enrollment determines relay dispatch eligibility and HUD presentation.
-
 This model was added in [pytorch/test-infra#8854](https://github.com/pytorch/test-infra/pull/8854) and enforced in the relay and dashboard in [pytorch/test-infra#8862](https://github.com/pytorch/test-infra/pull/8862).
 
 ## Design: Authenticated Self-Report
 
-Each downstream repo drives its own nightly schedule and reports results back to the relay. The relay acts as a **validating ingest endpoint** for nightly/periodic events. The full state machine is replaced with a **single-callback model**:
+Each downstream repo drives its own nightly schedule and reports results back to the relay. The relay acts as a **validating ingest endpoint** for nightly results. The full state machine is replaced with a **single-callback model**:
 
-| | PR / push (existing) | Nightly / periodic (new) |
+| | PR / push (existing) | Nightly (new) |
 |---|---|---|
 | **Trigger** | Upstream webhook → relay dispatches to downstream | Downstream cron (self-triggered) |
 | **State machine** | `DISPATCHED → IN_PROGRESS → COMPLETED` (two callbacks, Redis state tracking) | No state machine — single callback with final result |
@@ -117,14 +115,13 @@ Each downstream repo drives its own nightly schedule and reports results back to
 | **Redis** | Required (state tracking + zombie sweeper) | Not used |
 | **Validation** | GitHub webhook signature (`X-Hub-Signature-256`) | OIDC token + SHA existence |
 
-This significantly simplifies the relay path for nightly/periodic: no Redis writes, no state transitions, no zombie sweeper coverage. The downstream workflow runs to completion and reports the final result in a single callback.
+This significantly simplifies the relay path for nightly CI: no Redis writes, no state transitions, no zombie sweeper coverage. The downstream workflow runs to completion and reports the final result in a single callback.
 
 ### SHA Sources
 
-| Event type | Branch | SHA source | Rationale |
-|------------|--------|------------|-----------|
-| `nightly` | [`pytorch/pytorch/tree/nightly`](https://github.com/pytorch/pytorch/tree/nightly) | Top-of-tree commit on the `nightly` branch | The `nightly` branch is updated daily by [`trigger_nightly_core.yml`](https://github.com/pytorch/test-infra/blob/main/.github/workflows/trigger_nightly_core.yml). It represents the latest nightly-validated state of PyTorch. |
-| `periodic` | `main` or `viable/strict` | Top-of-tree commit on the target branch | Periodic tests run against the latest `main` HEAD or the latest viable/strict commit. |
+| Branch | SHA source | Rationale |
+|--------|------------|-----------|
+| [`pytorch/pytorch/tree/nightly`](https://github.com/pytorch/pytorch/tree/nightly) | Top-of-tree commit on the `nightly` branch | The `nightly` branch is updated daily by [`trigger_nightly_core.yml`](https://github.com/pytorch/test-infra/blob/main/.github/workflows/trigger_nightly_core.yml). It represents the latest nightly-validated state of PyTorch. |
 
 ### Flow
 
@@ -132,8 +129,7 @@ This significantly simplifies the relay path for nightly/periodic: no Redis writ
 Downstream repo's cron schedule (e.g., daily 02:00 UTC)
     ↓
 Fetch top-of-tree SHA:
-    - Nightly:  git ls-remote pytorch/pytorch refs/heads/nightly
-    - Periodic: git ls-remote pytorch/pytorch refs/heads/main
+    git ls-remote pytorch/pytorch refs/heads/nightly
     ↓
 Runs CI against that SHA (build, test, etc.)
     ↓
@@ -141,7 +137,7 @@ Single callback to the relay (no in_progress step):
     - OIDC token (proves repo identity)
     - dispatch_id = the commit SHA (idempotent, correlatable,
       maps directly to github.com/pytorch/pytorch/commit/<sha>)
-    - event_type = "nightly" or "periodic"
+    - event_type = "nightly"
     - status = "completed"
     - conclusion = "success" | "failure" | "timed_out"
     ↓
@@ -219,9 +215,19 @@ The shipped work comprises:
 | Relay and L3 checks | PR/push dispatch and L3 PR check-run handling consider only `pull_request` participants. |
 | HUD | Pull Requests dashboard counts and rows consider only `pull_request` participants; scheduled results remain in the Nightly view. |
 
+### HUD Pass-Rate Semantics
+
+Nightly pass rate measures completed CI job executions, not the number of cells rendered in the nightly matrix. For a selected time range, HUD must:
+
+1. Select nightly runs that touch the range.
+2. Retain the highest `run_attempt` for each `(downstream_repo, run_id, job_name)`.
+3. Count each completed retained job once; `success` is passing for normal downstream repos.
+
+The nightly matrix may group results by PyTorch SHA for presentation, but that visual grouping must not change the pass-rate numerator or denominator. [pytorch/test-infra#8897](https://github.com/pytorch/test-infra/issues/8897) tracks applying this contract consistently to the CRCR summary, per-repo stat card, and success-rate trends.
+
 ## Metrics
 
-- **Callbacks received per backend per day**: Count of nightly/periodic callback payloads ingested per downstream repo per 24h window. Observable from DynamoDB/ClickHouse without knowledge of downstream schedules.
+- **Callbacks received per backend per day**: Count of nightly callback payloads ingested per downstream repo per 24h window. Observable from DynamoDB/ClickHouse without knowledge of downstream schedules.
 - **Time since last callback**: Per-backend staleness indicator. The relay does not know a downstream repo's expected cron schedule, so this is the available signal for a future degraded-health policy.
 - **HUD coverage**: Number of downstream backends with nightly results visible on `hud.pytorch.org/crcr`.
 - **Time-to-detection**: How quickly a nightly regression in a downstream backend is surfaced on HUD (measured from cron trigger to HUD row appearing).
@@ -230,7 +236,7 @@ The shipped work comprises:
 
 ## Replay & Recovery
 
-Nightly/periodic pipelines are **idempotent by design**: the `delivery_id` is the upstream commit SHA, and the callback upserts into DynamoDB, so re-running the same workflow for the same SHA is safe and produces no duplicates.
+Nightly pipelines are **idempotent by design**: the `delivery_id` is the upstream commit SHA, and the callback upserts into DynamoDB, so re-running the same workflow for the same SHA is safe and produces no duplicates.
 
 **Manual replay procedure** (Option 1 — adopted for initial launch):
 
